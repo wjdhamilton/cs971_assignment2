@@ -1,4 +1,36 @@
-.Rproj.user
+# History files
 .Rhistory
+.Rapp.history
+
+# Session Data files
 .RData
+.RDataTmp
+
+# User-specific files
 .Ruserdata
+.Rproj.user/
+
+# RStudio Environment Variables
+.Renviron
+
+# R Markdown / knitr temporary files
+*.utf8.md
+*.knit.md
+
+# Cache directories (generated during R Markdown rendering)
+*_cache/
+/cache/
+
+# Rendered output files (Optional)
+# Uncomment these if you only want to track the source .Rmd files
+# *.html
+# *.pdf
+# *.docx
+
+# RStudio Connect or deployment folders
+rsconnect/
+
+# Common OS-generated files
+.DS_Store
+Thumbs.db
+auxScript.R
