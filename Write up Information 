@@ -1,0 +1,6 @@
+### Introduction
+- Assest Selection Criteria -
+o low sensitivity to news shocks 
+( exogenous shock unlearnable by a model. high sensitivity could negatively impact model performance as it attemps to learn from these shocks )
+o no derivates ( keeping in simple as derivatives would encourage analysis in to underlying )
+o no dividends ( affects price in no systematic way learnable by a model)
