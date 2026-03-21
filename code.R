@@ -52,12 +52,23 @@ mk_signal <- function(notify_risk_engine) {
 }
 
 # Same idea as above, the risk engine is another closure which will keep a track
-# of the risk engine's state
-risk_engine <- function(trade_executioner) {
+# of the risk engine's state. TODO: needs to know the market price as well in 
+# order to calculate running profits and decide whether or not to open / close
+# positions
+risk_engine <- function(executor) {
   trades <- c()
   account <- 100 # Dummy value for MVP
   function(signal) {
+    # do something with the executor to check price of trade and then execute
+    # trade if OK.
     cat(signal, "\r")
+  }
+}
+
+trade_executor <- function() {
+
+  function(instruction) {
+    0.02 # dummy cost
   }
 }
 
