@@ -1,11 +1,62 @@
 library(quantmod)
 library(GA)
+library(TTR)
 
 berk_s <- "BRK-B"
 
 getSymbols("BRK-B", src = "yahoo")
 
 berk_s <- get(berk_s)
+
+closes <- berk_s$`BRK-B.Close`
+
+# Market server
+# This simulates a stream of incoming data from the market. It works through a
+# callback function that gives the main application access to the dataset as
+# though it were coming from a market server.
+
+market <- function(listener) {
+  for (i in closes) {
+    listener(i)
+  }
+}
+
+# Signal
+# This function takes market data and generates a signal which it broadcasts to
+# the risk engine
+mk_signal <- function(notify_risk_engine) {
+  prices <- numeric(0)
+
+  calc_signal <- function(prices) {
+    if (length(prices) < 15) {
+      NULL
+    } else {
+      tail(RSI(as.numeric(prices)), 1)
+    }
+  }
+
+  function(price) {
+    price <- as.numeric(price)
+    if (length(prices) < 15) {
+      prices <<- c(prices, price)
+    } else {
+      prices <<- c(prices[-1], price)
+    }
+    signal <- calc_signal(prices)
+    notify_risk_engine(signal)
+  }
+}
+
+risk_engine <- function(trade_executioner) {
+  trades <- c()
+  account <- 100 # Dummy value for MVP
+  function(signal) {
+    cat(signal, "\r")
+  }
+}
+
+risk_engine(NULL) |> mk_signal() |> market()
+
 
 # Forecasting
 # We want to create a system that indicates whether or not the stock is likely
