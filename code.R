@@ -25,6 +25,7 @@ market <- function(listener) {
 # This function takes market data and generates a signal which it broadcasts to
 # the risk engine
 mk_signal <- function(notify_risk_engine) {
+  # Store for price data (can be changed)
   prices <- numeric(0)
 
   calc_signal <- function(prices) {
@@ -35,6 +36,9 @@ mk_signal <- function(notify_risk_engine) {
     }
   }
 
+  # This is the part that the market communicates with. It's a closure, which 
+  # means that the mk_signal function enclosing it is its environment and 
+  # information can be saved into the mk_signal environment with the <<- operator.
   function(price) {
     price <- as.numeric(price)
     if (length(prices) < 15) {
@@ -47,6 +51,8 @@ mk_signal <- function(notify_risk_engine) {
   }
 }
 
+# Same idea as above, the risk engine is another closure which will keep a track
+# of the risk engine's state
 risk_engine <- function(trade_executioner) {
   trades <- c()
   account <- 100 # Dummy value for MVP
