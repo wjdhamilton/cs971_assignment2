@@ -3,11 +3,8 @@ library(GA)
 library(TTR)
 
 berk_s <- "BRK-B"
-
 getSymbols("BRK-B", src = "yahoo")
-
 berk_s <- get(berk_s)
-
 closes <- berk_s$`BRK-B.Close`
 
 # Market server
@@ -21,10 +18,15 @@ market <- function(listener) {
   }
 }
 
+
+mk_signal <- function(price, signal, time) {
+  list(price = price, signal = signal, time = time)
+}
+
 # Signal
 # This function takes market data and generates a signal which it broadcasts to
 # the risk engine
-mk_signal <- function(notify_risk_engine) {
+forecaster <- function(notify_risk_engine) {
   # Store for price data (can be changed)
   prices <- numeric(0)
 
@@ -36,23 +38,32 @@ mk_signal <- function(notify_risk_engine) {
     }
   }
 
-  # This is the part that the market communicates with. It's a closure, which 
-  # means that the mk_signal function enclosing it is its environment and 
-  # information can be saved into the mk_signal environment with the <<- operator.
+  # This is the part that the market communicates with. It's a closure, which
+  # means that the forecaster function enclosing it is its environment and
+  # information can be saved into the forecaster environment with the <<- operator.
   function(price) {
-    price <- as.numeric(price)
+    p <- as.numeric(price)
     if (length(prices) < 15) {
-      prices <<- c(prices, price)
+      prices <<- c(prices, p)
     } else {
-      prices <<- c(prices[-1], price)
+      prices <<- c(prices[-1], p)
     }
-    signal <- calc_signal(prices)
+    s <- calc_signal(prices)
+    t <- price[1]
+    signal <- mk_signal(price = p, signal = s, time = t)
     notify_risk_engine(signal)
   }
 }
 
+# A trade object, which is a record of how much, at what price, and when.
+# Negative units indicate a sale, positive a buy. Charges are updated by the
+# executor
+make_trade <- function(price, units, time) {
+  list(price = price, units = units, time = time, charge = NULL)
+}
+
 # Same idea as above, the risk engine is another closure which will keep a track
-# of the risk engine's state. TODO: needs to know the market price as well in 
+# of the risk engine's state. TODO: needs to know the market price as well in
 # order to calculate running profits and decide whether or not to open / close
 # positions
 risk_engine <- function(executor) {
@@ -61,18 +72,20 @@ risk_engine <- function(executor) {
   function(signal) {
     # do something with the executor to check price of trade and then execute
     # trade if OK.
-    cat(signal, "\r")
+    trade <- make_trade(signal$price, 1, signal$time)
+    trades <- c(trades, trade)
+    cat(str(executor(trade)))
   }
 }
 
 trade_executor <- function() {
-
   function(instruction) {
-    0.02 # dummy cost
+    instruction$charge <- 0.02
+    instruction
   }
 }
 
-risk_engine(NULL) |> mk_signal() |> market()
+trade_executor() |> risk_engine() |> forecaster() |> market()
 
 
 # Forecasting
