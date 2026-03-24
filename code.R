@@ -7,6 +7,18 @@ getSymbols("BRK-B", src = "yahoo")
 berk_s <- get(berk_s)
 closes <- berk_s$`BRK-B.Close`
 
+# Fitness functions
+# ------------------------------------------------------------------------------
+# These ought to be combined into a single function for the purposes of 
+# optimisation.
+
+# Fitness for trade execution
+library(PerformanceAnalytics) # for the Sortino Ratio
+
+risk_engine_f <- function() {
+  SortinoRatio(trades, min_return) + beta * trade_penalty - gamma * drawdown + delta * mean_return
+}
+
 # Market server
 # This simulates a stream of incoming data from the market. It works through a
 # callback function that gives the main application access to the dataset as
