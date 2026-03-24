@@ -73,25 +73,26 @@ for (i in 1:max_lag) {
 Training_Lagged_df <- na.omit(Training_Lagged_df)
 
 # trying to get column names in the right format for var = in ForecastingRules
-var_names <- paste0("Lag_", 1:max_lag)
-var_rules <- lapply(var_names, function(nm) Training_Lagged_df[[nm]])
+var_names <- paste0("Lag_", 1:max_lag) 
+var_rules <- lapply(var_names, as.symbol)
 
 # Fitness function (RMSE)
 forecastingfitnessRMSE <- function(expr) {
   result <- eval(expr)
   if (any(is.nan(result)))
     return(Inf)
-  return (sqrt(mean((Training_Lagged_df$BRK.B.Close - result)^2)))
-} 
+  return(sqrt(mean((Training_Lagged_df$BRK.B.Close - result)^2)))
+}
 
 # Grammar
 ForecasatingRules <- list(expr = grule(op(expr, expr), func(expr), var),
                           func = grule(sin, cos, exp, log),
                           op = grule('+', '-', '*', '/', '^'),
-                          var = do.call(grule, var_rules))
+                          var = do.call(grule, lapply(var_names, \(n) Training_Lagged_df[[n]]
+                                                                    )))
 ForecastingGrammar <- CreateGrammar(ForecasatingRules)
 
-# Run 
+# Run
 ge <- GrammaticalEvolution(ForecastingGrammar, 
                            forecastingfitnessRMSE, 
                            terminationCost = 0.05, 
@@ -116,4 +117,3 @@ pred_test <- with(Testing_Lagged_df, eval(ForecastingModel))
 
 rmse_test <- sqrt(mean((Testing_Lagged_df$BRK.B.Close - pred_test)^2))
 rmse_test
-### EMA & RSI #############
