@@ -53,8 +53,8 @@ plot(roll_sd_5,
 plot(FullDataXTS$`BRK-B`$`BRK-B.Close`)
 # Log Price Plot
 plot(log(FullDataXTS$`BRK-B`$`BRK-B.Close`))
-# Log Returns Plot 
-plot(diff(log(FullDataXTS$`BRK-B`$`BRK-B.Close`),1))
+# Log Returns Plot
+plot(diff(log(FullDataXTS$`BRK-B`$`BRK-B.Close`), 1))
 
 
 ### Forecasting Engine #################
@@ -62,7 +62,7 @@ plot(diff(log(FullDataXTS$`BRK-B`$`BRK-B.Close`),1))
 # output = Forecasts, up or down, probability confidence
 
 # operating DF
-max_lag <- 21 # 1 month of trading 
+max_lag <- 21 # 1 month of trading
 
 Training_Lagged_df <- data.frame(Date = index(TrainingData$`BRK-B.Close`),
                                  Price = TrainingData$`BRK-B.Close`)
@@ -73,33 +73,35 @@ for (i in 1:max_lag) {
 Training_Lagged_df <- na.omit(Training_Lagged_df)
 
 # trying to get column names in the right format for var = in ForecastingRules
-var_names <- paste0("Lag_", 1:max_lag) 
+var_names <- paste0("Lag_", 1:max_lag)
 var_rules <- lapply(var_names, as.symbol)
+
+# This makes the Lag_1, Lag_2 etc. argument find its way to the Training_Lagged_df frame
+env <- list2env(as.list(Training_Lagged_df), parent = baseenv())
 
 # Fitness function (RMSE)
 forecastingfitnessRMSE <- function(expr) {
-  result <- eval(expr)
+  result <- eval(expr, envir = env)
   if (any(is.nan(result)))
     return(Inf)
   return(sqrt(mean((Training_Lagged_df$BRK.B.Close - result)^2)))
 }
 
 # Grammar
-ForecasatingRules <- list(expr = grule(op(expr, expr), func(expr), var),
+ForecastingRules <- list(expr = grule(op(expr, expr), func(expr), var),
                           func = grule(sin, cos, exp, log),
                           op = grule('+', '-', '*', '/', '^'),
-                          var = do.call(grule, lapply(var_names, \(n) Training_Lagged_df[[n]]
-                                                                    )))
-ForecastingGrammar <- CreateGrammar(ForecasatingRules)
+                          var = do.call(grule, lapply(var_names, as.name)))
+ForecastingGrammar <- CreateGrammar(ForecastingRules)
 
 # Run
-ge <- GrammaticalEvolution(ForecastingGrammar, 
-                           forecastingfitnessRMSE, 
-                           terminationCost = 0.05, 
-                           max.depth = 3)
+ge <- GrammaticalEvolution(ForecastingGrammar,
+                           forecastingfitnessRMSE,
+                           terminationCost = 0.05,
+                           max.depth = 30)
 # Evaluation
 ForecastingModel <- ge$best$expressions
-eval(ForecastingModel) 
+eval(ForecastingModel, envir = env)
 # RMSE 1.5 is not bad at all for a first attempt and seems entirely usable given scale of prices.. 
 # Almost too good to be true so please sense check
 
