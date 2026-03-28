@@ -17,5 +17,6 @@ really want the latter, and we get it often.
   Lag_2}. If you apply mean to the dataset you get { mean(Lag_0), mean(Lag_1), 
   mean(Lag_2) } which should all be approximately equal since the lags are just
   Lag_0 minus 1 and 2 datapoints respectively
-o Need to remove Close prices from training and test datasets -> Look ahead
-bias?
+o Since it now works with a single dataframe, we should make all the column
+refereces dynamic so changing ticker means just changing its name at the
+start
