@@ -34,3 +34,4 @@ rsconnect/
 .DS_Store
 Thumbs.db
 auxScript.R
+.lintr

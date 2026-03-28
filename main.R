@@ -1,4 +1,4 @@
-set.seed(1000000)
+# set.seed(1000000)
 ### Libraries #############
 library(gramEvol)
 library(GA)
@@ -15,46 +15,15 @@ library(BatchGetSymbols)
 data_start <- "2000-01-01"
 data_end   <- "2026-01-01"
 
-mystocks  <- c("BRK-B")
+tkr  <- "BRK-B"
 
-tickers <- c(mystocks)
 
 # Download into a named list (preserves order)
-FullDataXTS <- lapply(tickers, function(tkr) {
-  getSymbols(tkr, src = "yahoo",
-             from = data_start,
-             to   = data_end,
-             auto.assign = FALSE)
-})
+FullDataXTS <- getSymbols(tkr, src = "yahoo",
+                          from = data_start,
+                          to   = data_end,
+                          auto.assign = FALSE)
 
-names(FullDataXTS) <- tickers
-
-TrainingData <- FullDataXTS$`BRK-B`["/2020-12-31"]
-TestingData  <- FullDataXTS$`BRK-B`["2021-01-01/"]
-### Data Exploration & Visualization #############
-# Close vs Adj Close: No difference due to no dividend payout or splits suggesting one of the two can be dropped
-plot(TrainingData$`BRK-B.Close`-TrainingData$`BRK-B.Adjusted`)
-
-# Volume: after log scaled for inference plot shows 2 volume regimes split by mid 2009
-plot(log(TrainingData$`BRK-B.Volume`))
-
-# Intra-day Variability: positive drift post 2008 which wasn't present prior motivating further volatility analysis
-plot((TrainingData$`BRK-B.High` - TrainingData$`BRK-B.Low`))
-
-# Trading week rolling SD: Inter-day drift showing posot 2008 too
-roll_sd_5 <- runSD(TrainingData$`BRK-B.Close`, n = 5)
-
-plot(roll_sd_5,
-     main = "BRK-B 5-Day Rolling Standard Deviation",
-     ylab = "Rolling SD",
-)
-
-# Price Plot
-plot(FullDataXTS$`BRK-B`$`BRK-B.Close`)
-# Log Price Plot
-plot(log(FullDataXTS$`BRK-B`$`BRK-B.Close`))
-# Log Returns Plot
-plot(diff(log(FullDataXTS$`BRK-B`$`BRK-B.Close`), 1))
 
 
 ### Forecasting Engine #################
@@ -64,58 +33,111 @@ plot(diff(log(FullDataXTS$`BRK-B`$`BRK-B.Close`), 1))
 # operating DF
 max_lag <- 21 # 1 month of trading
 
-Training_Lagged_df <- data.frame(Date = index(TrainingData$`BRK-B.Close`),
-                                 Price = TrainingData$`BRK-B.Close`)
 
-for (i in 1:max_lag) {
-  Training_Lagged_df[[paste0("Lag_", i)]] <- Lag(TrainingData$`BRK-B.Close`, k = i)
+prefixes = c("Open", "High", "Low", "Close", "Volume")
+var_names <- character(0)
+
+lagged_data <- FullDataXTS
+lagged_data[, "BRK-B.Volume"] <- log(lagged_data[, "BRK-B.Volume"]) # Scale the volume to a more amenable number
+
+for (f in prefixes) {
+  for (i in 1:max_lag) {
+    label <- paste0(f, "_Lag_", i)
+    var_names <- c(var_names, label)
+    column <- grep(paste0("\\.", f, "$"), colnames(lagged_data), value = TRUE)
+    lag <- Lag(lagged_data[, column], k = i)
+    colnames(lag) <- label
+    lagged_data <- merge(lagged_data, lag)
+  }
 }
-Training_Lagged_df <- na.omit(Training_Lagged_df)
+
+lagged_data <- na.omit(lagged_data)
+
+TrainingData <- lagged_data["/2020-12-31"]
+TestingData  <- lagged_data["2021-01-01/"]
 
 # trying to get column names in the right format for var = in ForecastingRules
-var_names <- paste0("Lag_", 1:max_lag)
 var_rules <- lapply(var_names, as.symbol)
 
-# This makes the Lag_1, Lag_2 etc. argument find its way to the Training_Lagged_df frame
-env <- list2env(as.list(Training_Lagged_df), parent = baseenv())
+# These functions wrap functions that can return NA and rturn 0 instead. Using
+# Inf doesn't work since it makes the trig functions return NA.
+p_log <- \(num) {
+  if (any(num < 0, na.rm = TRUE)) {
+    0
+  } else {
+    log(num)
+  }
+}
+
+p_sin <- \(num) {
+  if(any(!is.finite(num))) {
+    0
+  } else {
+    sin(num)
+  }
+}
+
+p_cos <- \(num) {
+  if(any(!is.finite(num))) {
+    0
+  } else {
+    cos(num)
+  }
+}
+
+
+
+# This makes the Lag_1, Lag_2 etc. argument find its way to the TrainingData frame
+env <- list2env(as.list(TrainingData), parent = .GlobalEnv)
 
 # Fitness function (RMSE)
 forecastingfitnessRMSE <- function(expr) {
   result <- eval(expr, envir = env)
   if (any(is.nan(result)))
-    return(Inf)
-  return(sqrt(mean((Training_Lagged_df$BRK.B.Close - result)^2)))
+    Inf
+  else
+    sqrt(mean((TrainingData$BRK.B.Close - result)^2))
 }
 
 # Grammar
-ForecastingRules <- list(expr = grule(op(expr, expr), func(expr), var),
-                          func = grule(sin, cos, exp, log),
-                          op = grule('+', '-', '*', '/', '^'),
-                          var = do.call(grule, lapply(var_names, as.name)))
+ForecastingRules <- list(expr       = grule(op(arithmetic, arithmetic),
+                                            reducer(lists),
+                                            func(arithmetic),
+                                            var),
+                         arithmetic = grule(op(arithmetic, arithmetic),
+                                            func(arithmetic),
+                                            reducer(lists),
+                                            data,
+                                            var), # Things that are acceptable to an arithmetic function in R
+                         func       = grule(p_sin, p_cos, exp, p_log),
+                         op         = grule('+', '-', '*', '/'),
+                         reducer    = grule(rowMeans),
+                         lists      = grule(merge(data)),
+                         data       = do.call(grule, lapply(var_names, as.name)),
+                         var        = gvrule(1:200)
+                         )
 ForecastingGrammar <- CreateGrammar(ForecastingRules)
 
 # Run
 ge <- GrammaticalEvolution(ForecastingGrammar,
                            forecastingfitnessRMSE,
                            terminationCost = 0.05,
-                           max.depth = 30)
+                           max.depth = 5)
 # Evaluation
 ForecastingModel <- ge$best$expressions
 eval(ForecastingModel, envir = env)
 # RMSE 1.5 is not bad at all for a first attempt and seems entirely usable given scale of prices.. 
 # Almost too good to be true so please sense check
 
-# Evaluation over Test Data
-Testing_Lagged_df <- data.frame(Date = index(TestingData$`BRK-B.Close`),
-                                Price = TestingData$`BRK-B.Close`)
+pred_test <- with(TrainingData, eval(ForecastingModel))
+# pred_test <- lag.xts(pred_test, k = -1)
 
-for (i in 1:max_lag) {
-  Testing_Lagged_df[[paste0("Lag_", i)]] <- Lag(TestingData$`BRK-B.Close`, k = i)
-}
-Testing_Lagged_df <- na.omit(Testing_Lagged_df)
+cls <- TrainingData$BRK.B.Close
 
-# not sure why its stilling using Training_Laggeddf here 
-pred_test <- with(Testing_Lagged_df, eval(ForecastingModel))
+comparator <- merge(cls, prediction = pred_test)
 
-rmse_test <- sqrt(mean((Testing_Lagged_df$BRK.B.Close - pred_test)^2))
-rmse_test
+rmse_test <- sqrt(mean((cls - pred_test)^2))
+
+print(tail(comparator, 10))
+print(ForecastingModel)
+print(rmse_test)
