@@ -32,7 +32,7 @@ FullDataXTS <- getSymbols(tkr, src = "yahoo",
 
 # operating DF
 max_lag <- 21 # 1 month of trading
-
+min_lag <- 5
 
 prefixes = c("Open", "High", "Low", "Close", "Volume")
 var_names <- character(0)
@@ -41,7 +41,7 @@ lagged_data <- FullDataXTS
 lagged_data[, "BRK-B.Volume"] <- log(lagged_data[, "BRK-B.Volume"]) # Scale the volume to a more amenable number
 
 for (f in prefixes) {
-  for (i in 1:max_lag) {
+  for (i in min_lag:max_lag) {
     label <- paste0(f, "_Lag_", i)
     var_names <- c(var_names, label)
     column <- grep(paste0("\\.", f, "$"), colnames(lagged_data), value = TRUE)
@@ -96,25 +96,37 @@ forecastingfitnessRMSE <- function(expr) {
   if (any(is.nan(result)))
     Inf
   else
-    sqrt(mean((TrainingData$BRK.B.Close - result)^2))
+    fitness <- sqrt(mean((TrainingData$BRK.B.Close - result)^2))
+    fitness
 }
+
+# Helper function that returns a scalar from the cor function. Cannot be used 
+# with xts objects or other collections with more than 2 columns
+cor_scalar <- function(x, y) as.numeric(cor(x, y))
+var_scalar <- function(x) as.numeric(var(x))
 
 # Grammar
 ForecastingRules <- list(expr       = grule(op(arithmetic, arithmetic),
                                             reducer(lists),
                                             func(arithmetic),
-                                            var),
-                         arithmetic = grule(op(arithmetic, arithmetic),
+                                            data),
+                         arithmetic = grule(op(arithmetic, arithmetic), # Things that are acceptable to an arithmetic function in R
                                             func(arithmetic),
                                             reducer(lists),
+                                            # stats(lists),  Don't do this, returns a correlation matrix
+                                            stats(data),
+                                            #stats2(lists, lists), Don't do this since cor(list, list) returns a correlation matrix
+                                            stats2(data, data),
                                             data,
-                                            var), # Things that are acceptable to an arithmetic function in R
+                                            const),
                          func       = grule(p_sin, p_cos, exp, p_log),
                          op         = grule('+', '-', '*', '/'),
                          reducer    = grule(rowMeans),
-                         lists      = grule(merge(data)),
+                         stats      = grule(var_scalar, mean),
+                         stats2     = grule(cor_scalar),
+                         lists      = grule(merge(data, lists), merge(data, data)),
                          data       = do.call(grule, lapply(var_names, as.name)),
-                         var        = gvrule(1:200)
+                         const      = gvrule(1:200)
                          )
 ForecastingGrammar <- CreateGrammar(ForecastingRules)
 
