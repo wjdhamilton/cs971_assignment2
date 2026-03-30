@@ -149,10 +149,10 @@ eval(ForecastingModel, envir = env)
 # RMSE 1.5 is not bad at all for a first attempt and seems entirely usable given scale of prices.. 
 # Almost too good to be true so please sense check
 
-pred_test <- with(TrainingData, eval(ForecastingModel))
+pred_test <- with(TestingData, eval(ForecastingModel))
 # pred_test <- lag.xts(pred_test, k = -1)
 
-cls <- TrainingData[, close]
+cls <- TestingData[, close]
 
 comparator <- merge(cls, prediction = pred_test)
 
