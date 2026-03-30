@@ -15,8 +15,12 @@ closes <- berk_s$`BRK-B.Close`
 # Fitness for trade execution
 library(PerformanceAnalytics) # for the Sortino Ratio
 
-risk_engine_f <- function() {
-  SortinoRatio(trades, min_return) + beta * trade_penalty - gamma * drawdown + delta * mean_return
+trade_penalty <- \(n) n/(n+1)
+drawdown <- \(trades) NaN
+mean_return <- \(trades) NaN
+
+risk_engine_f <- function(alpha, beta, gamma, delta, trades) {
+  alpha * SortinoRatio(trades, min_return) + beta * trade_penalty - gamma * drawdown + delta * mean_return
 }
 
 # Market server
@@ -31,38 +35,25 @@ market <- function(listener) {
 }
 
 
-mk_signal <- function(price, signal, time) {
-  list(price = price, signal = signal, time = time)
+mk_signal <- function(close, signal, time) {
+  list(close = close, signal = signal, time = time)
 }
 
 # Signal
 # This function takes market data and generates a signal which it broadcasts to
 # the risk engine
-forecaster <- function(notify_risk_engine) {
+forecaster <- function(calc_forecast, notify_risk_engine) {
   # Store for price data (can be changed)
   prices <- numeric(0)
-
-  calc_signal <- function(prices) {
-    if (length(prices) < 15) {
-      NULL
-    } else {
-      tail(RSI(as.numeric(prices)), 1)
-    }
-  }
 
   # This is the part that the market communicates with. It's a closure, which
   # means that the forecaster function enclosing it is its environment and
   # information can be saved into the forecaster environment with the <<- operator.
-  function(price) {
-    p <- as.numeric(price)
-    if (length(prices) < 15) {
-      prices <<- c(prices, p)
-    } else {
-      prices <<- c(prices[-1], p)
-    }
-    s <- calc_signal(prices)
-    t <- price[1]
-    signal <- mk_signal(price = p, signal = s, time = t)
+  function(ohlcv) {
+    prices <- 1 # TODO need to append a row to an xts object
+    # TODO need a function that converts prices to an object that forecast expects
+    f <- with(prices, calc_forecast) # Assuming that prices is an xts object of the same shape and format as that which the expression expects
+    signal <- mk_signal(signal = f, time = t)
     notify_risk_engine(signal)
   }
 }
@@ -81,7 +72,31 @@ make_trade <- function(price, units, time) {
 risk_engine <- function(executor) {
   trades <- c()
   account <- 100 # Dummy value for MVP
+
+  assess_signal <- \(signal) {
+    "BUY"
+  }
+
+  assess_trade <- \(signal, trade) {
+    "HOLD"
+  }
+
   function(signal) {
+    action <- assess_signal(signal)
+    if (action == "LONG") {
+      go_long
+    } else if (action == "SHORT") {
+      go_short
+    }
+
+    for (t in trades) {
+      action <- assess_trade(t)
+      if (action == "CLOSE") {
+        cl <- close_trade(t)
+        
+      }
+    }
+
     # do something with the executor to check price of trade and then execute
     # trade if OK.
     trade <- make_trade(signal$price, 1, signal$time)

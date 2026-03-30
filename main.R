@@ -15,8 +15,7 @@ library(BatchGetSymbols)
 data_start <- "2000-01-01"
 data_end   <- "2026-01-01"
 
-tkr  <- "BRK-B"
-
+tkr  <- "AAPL"
 
 # Download into a named list (preserves order)
 FullDataXTS <- getSymbols(tkr, src = "yahoo",
@@ -25,6 +24,10 @@ FullDataXTS <- getSymbols(tkr, src = "yahoo",
                           auto.assign = FALSE)
 
 
+########## Handle '-' in ticker names because R has a delightful habit of
+########## unexpectedly sanitising the column names so they can be used as symbols
+tkr <- gsub("-", ".", tkr, fixed = TRUE)
+colnames(FullDataXTS) <- make.names(colnames(FullDataXTS), unique = TRUE)
 
 ### Forecasting Engine #################
 # input = Price ts
@@ -34,18 +37,24 @@ FullDataXTS <- getSymbols(tkr, src = "yahoo",
 max_lag <- 21 # 1 month of trading
 min_lag <- 5
 
-prefixes = c("Open", "High", "Low", "Close", "Volume")
+make_field <- \(f) paste0(tkr, ".", f)
+volume <- paste0(tkr, ".Volume")
+open   <- paste0(tkr, ".Open")
+high   <- paste0(tkr, ".High")
+low    <- paste0(tkr, ".Low")
+close  <- paste0(tkr, ".Close")
+
+fields <- c(volume, open, high, low, close)
 var_names <- character(0)
 
 lagged_data <- FullDataXTS
-lagged_data[, "BRK-B.Volume"] <- log(lagged_data[, "BRK-B.Volume"]) # Scale the volume to a more amenable number
+lagged_data[, volume] <- log(lagged_data[, volume]) # Scale the volume to a more amenable number
 
-for (f in prefixes) {
+for (f in fields) {
   for (i in min_lag:max_lag) {
     label <- paste0(f, "_Lag_", i)
     var_names <- c(var_names, label)
-    column <- grep(paste0("\\.", f, "$"), colnames(lagged_data), value = TRUE)
-    lag <- Lag(lagged_data[, column], k = i)
+    lag <- Lag(lagged_data[, f], k = i)
     colnames(lag) <- label
     lagged_data <- merge(lagged_data, lag)
   }
@@ -96,7 +105,11 @@ forecastingfitnessRMSE <- function(expr) {
   if (any(is.nan(result)))
     Inf
   else
+<<<<<<< HEAD
     sqrt(mean((TrainingData$BRK.B.Close - result)^2))
+=======
+    sqrt(mean((TrainingData[, volume] - result)^2))
+>>>>>>> risk_engine
 }
 
 # Helper function that returns a scalar from the cor function. Cannot be used 
@@ -143,7 +156,7 @@ eval(ForecastingModel, envir = env)
 pred_test <- with(TrainingData, eval(ForecastingModel))
 # pred_test <- lag.xts(pred_test, k = -1)
 
-cls <- TrainingData$BRK.B.Close
+cls <- TrainingData[, close]
 
 comparator <- merge(cls, prediction = pred_test)
 
