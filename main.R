@@ -105,11 +105,7 @@ forecastingfitnessRMSE <- function(expr) {
   if (any(is.nan(result)))
     Inf
   else
-<<<<<<< HEAD
-    sqrt(mean((TrainingData$BRK.B.Close - result)^2))
-=======
     sqrt(mean((TrainingData[, volume] - result)^2))
->>>>>>> risk_engine
 }
 
 # Helper function that returns a scalar from the cor function. Cannot be used 
