@@ -105,7 +105,7 @@ forecastingfitnessRMSE <- function(expr) {
   if (any(is.nan(result)))
     Inf
   else
-    sqrt(mean((TrainingData[, volume] - result)^2))
+    sqrt(mean((TrainingData[, close] - result)^2))
 }
 
 # Helper function that returns a scalar from the cor function. Cannot be used 
