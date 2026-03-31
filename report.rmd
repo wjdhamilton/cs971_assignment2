@@ -1,0 +1,93 @@
+---
+title: "Trading System"
+output:
+  pdf_document: default
+  html_document: default
+date: "2026-03-31"
+header-includes:
+  - \usepackage{bm}
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(quantmod)
+library(gramEvol)
+```
+# Introduction
+
+## Price Forecasting
+Initially, we attempted to use gramEvol's genetic programming algorithm to 
+determine the price of a stock one period ahead. This strategy assumed that the
+price of a stock could be deduced from earlier prices. 
+
+10 stocks were tested using their simple prices, log returns, and differenced
+log returns with the following fitness function and grammar:
+
+```{r forecasting}
+
+# Grammar - note that the data rule, rhich references the columns of the lagged
+# dataset is introduced during processing
+ForecastingRules <- list(expr       = grule(op(arithmetic, arithmetic),
+                                            reducer(lists),
+                                            func(arithmetic),
+                                            data
+                                            ),
+                         arithmetic = grule(op(arithmetic, arithmetic), # Things that are acceptable to an arithmetic function in R
+                                            func(arithmetic), # Only apply the general functions to scalars
+                                            reducer(lists), # reducers will transform a scalar into a list
+                                            stats(data), 
+                                            stats2(data, data),
+                                            const),
+                         func       = grule(p_sin, p_cos, exp, p_log),
+                         op         = grule('+', '-', '*', '/'),
+                         reducer    = grule(rowMeans),
+                         stats      = grule(var_scalar, mean),
+                         stats2     = grule(cor_scalar),
+                         lists      = grule(merge(data, lists), merge(data, data)),
+                         const      = gvrule(seq(0, 200, by = 0.1))
+                         )
+
+# Fitness function (RMSE)
+fitness <- forecastingfitnessRMSE <- function(env, training, expr) {
+  result <- eval(expr, envir = env)
+  if (any(is.nan(result)))
+    Inf
+  else
+    sqrt(mean((training - result)^2))
+}
+```
+
+# TODO put the full code in here, echo off
+
+The mean squared errors and expressions obtained were as follows:
+
+|-------|----------------------|-----------------------|
+|Ticker | Simple (RMSE)        | log (RMSE)            |
+|-------|----------------------|-----------------------|
+| AAPL  | High Lag 1 (2.59)    | Open Lag 3 (1.03)     | 
+|-------|----------------------|-----------------------|
+| BRK-B | Close Lag 1 (3.054)  | High Lag 2 (1.02)     |
+|-------|----------------------|-----------------------|
+| KGF.L | Close Lag 2 (7.38)   | Close Lag 5 (1.03)    |
+|-------|----------------------|-----------------------|
+| MKS.L | Close Lag 1 (5,43)   | Close Lag 2 (1.03)    |
+|-------|----------------------|-----------------------|
+| AHT.L | Close Lag 1 (66.88)  | Close Lag 1 (1.02)    |
+|-------|----------------------|-----------------------|
+
+Note that each of these results is a very recent lag. In modern financial
+theory financial assets are understood to frequently behave like martingales,
+particularly at higher time frames due to market efficiency. Martingales have
+the particular property that $E[X_t+1 | X_{t}, X_{t-1} ... X_n] = X_{t}]$ or,
+more prosaically, the best forecast of tomorrow's price is today's. The above
+result strongly suggests that these stocks, and many if not all others, are
+martingales, which strongly suggests that the price series alone cannot be used
+to forecast future prices. What we need is a algorithm that can deduce an
+assets future behaviour, rather than a precise forecast. 
+
+# Technical Analysis
+
+
