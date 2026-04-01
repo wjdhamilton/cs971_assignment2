@@ -73,6 +73,7 @@ run_GP <- \(grammar,
   TestingData  <- lagged_data[testing_start]
 
   # trying to get column names in the right format for var = in ForecastingRules
+  # TODO is this actually used? see line 81
   var_rules <- lapply(var_names, as.symbol)
 
   # This makes the Lag_1, Lag_2 etc. argument find its way to the TrainingData frame
@@ -110,7 +111,7 @@ var_scalar <- function(x) as.numeric(var(x))
 # Inf doesn't work since it makes the trig functions return NA.
 p_log <- \(num) {
   if (any(num < 0, na.rm = TRUE)) {
-    0
+    Inf
   } else {
     log(num)
   }
@@ -118,7 +119,7 @@ p_log <- \(num) {
 
 p_sin <- \(num) {
   if (any(!is.finite(num))) {
-    0
+    Inf
   } else {
     sin(num)
   }
@@ -126,7 +127,7 @@ p_sin <- \(num) {
 
 p_cos <- \(num) {
   if (any(!is.finite(num))) {
-    0
+    Inf
   } else {
     cos(num)
   }
@@ -157,10 +158,10 @@ ForecastingRules <- list(expr       = grule(op(arithmetic, arithmetic),
                          )
 
 # Fitness function (RMSE)
-fitness <- forecastingfitnessRMSE <- function(env, training, expr) {
+fitness <- \(env, training, expr) {
   result <- eval(expr, envir = env)
   # Get rid of NaNs, and sometimes the expression returns a single value
-  if (any(is.nan(result)) || length(result) != length(training)) 
+  if (any(is.nan(result)) || length(result) != length(training))
     Inf
   else
     sqrt(mean((training - result)^2))
@@ -188,3 +189,32 @@ run_GP(ForecastingRules,
        pre_processor  = log_processor,
        post_processor = log_post_processor)
 
+############################# Technical Analysis Indicators ####################
+sma <- \(data, n) rowMeans(data[, 2:n], na.rm = TRUE)
+
+indicator_fit <- \(env, training, expr) {
+  result <- eval(expr, envir = env)
+  if (any(is.nan(result)) || length(result) != length(training))
+    Inf
+  else
+    sum(training[, close] * result)
+}
+
+indicator_rules <- list(expr        = grule(activation(func)),
+                        activation  = grule(plogis, tanh),
+                        func        = grule(op(func, func),
+                                            indic(data)
+                                            ),
+                        op          = grule('+', '-', '*', '/'),
+                        indic       = grule(sma(aspects, const)),
+                        aspects     = do.call(grule, c(open, high, low, close, volume)),
+                        const       = gvrule(1:200)
+                        )
+
+run_GP(indicator_rules,
+       indicator_fit,
+       min_lag, 
+       max_lag,
+       data_start,
+       data_end,
+       tkr)
