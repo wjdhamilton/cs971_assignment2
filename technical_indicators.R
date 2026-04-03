@@ -45,7 +45,7 @@ high   <- paste0(tkr, ".High")
 low    <- paste0(tkr, ".Low")
 close  <- paste0(tkr, ".Close")
 
-fields <- c(volume, open, high, low, close)
+fields <- c(open, high, low, close)
 field_rules <- lapply(fields, as.symbol)
 
 # These functions wrap functions that can return NA and rturn 0 instead. Using
@@ -85,39 +85,20 @@ ema <- \(data, n) (TTR::EMA(data, n) |> na.omit())
 dema <- \(data, n, v) (TTR::DEMA(data, n, v) |> na.omit())
 evwma <- \(data, v, n) (TTR::EVWMA(data, v, n) |> na.omit())
 
-# Gaussian Kernel
-
-# KDE framework, based on Lo, Mamansky & Wang (2000)
-k_regress <- \(d, h, k, y) {
-  m <- \(d, h, k, y, i) {
-    x <- d[i]
-    v <- k((d - x) / h) # Scaled Kernel Regressor
-    g <- sum(v)
-    w <- v / g
-    sum(w * y)
-  }
-  result <- rep(NA_real_, NROW(d))
-  for (i in 2:NROW(d)) {
-    result[i] <- m(d[1:i], h, k, y, i)
-  }
-  as.xts(result, order.by = index(d))
+comp <- function(a, b) {
+  ab <- merge(a, b, join = "left")
+  out <- ifelse(ab[, 1] > ab[, 2], 1L, 0L)
+  out[is.na(out)] <- 0L
+  ab[, 1] <- out
+  ab[, 1, drop = FALSE]
 }
-
-comp <- \(x,y) x > y
 
 indicator_rules <- list(expr        = grule(compare(aspect, transform)),
                         compare     = grule(comp),
-                        transform   = grule(op(transform, transform),
-                                            op(transform, indic),
-                                            # func(transform),
-                                            # func(indic),
+                        transform   = grule(op(transform, indic),
                                             op(transform, aspect),
                                             indic
-                                            # k_regress(aspect, const, kernel, regress_f)
                                             ),
-                        # regress_f   = grule(func(aspect), op(regress_f, regress_f)),
-                        # kernel      = grule(dnorm),
-                        # func        = grule(p_sin, p_cos, p_log, sinh, cosh),
                         op          = grule('+', '-', '*'),
                         indic       = grule(sma(aspect, const),
                                             ema(aspect, const),
@@ -125,42 +106,55 @@ indicator_rules <- list(expr        = grule(compare(aspect, transform)),
                                             ),
                         aspect      = do.call(grule, field_rules),
                         dema_v      = gvrule(seq(0,0.9,by = 0.1)),
-                        const       = gvrule(1:200)
+                        const       = gvrule(2:200),
+                        vol         = grule(volume)
                       )
 
 forecasting_grammar <- CreateGrammar(indicator_rules)
 
 ######################## Fitness Function and GP
 
-apply_expression <- \(result, data) {
-  browser()
+assess_fit <- \(result, data) {
   idx             <- index(result)
-  next_day        <- data[idx] # Force the training data to align with result
-  forecast_trend  <- sign(diff(result)) |> na.omit()
-  actual_trend    <- sign(diff(data))   |> na.omit()
-  if(abs(sum(forecast_trend)) == NROW(forecast_trend)) return(Inf)
-  misses          <- forecast_trend != actual_trend
-  n_trades        <- sum(diff(forecast_trend) != 0, na.rm = TRUE)
-  # Multiply by 3 since tanh is meaningfully in (-3,3) and the penalties are in [0,1]
-  # recall gramevol minimises cost
+  next_day        <- stats::lag(data, 1) |> na.omit()
+  next_day        <- next_day[idx] # Force the training data to align with result
+  actual_trend    <- sign(diff(next_day))   |> na.omit()
+  forecast        <- sign(result)
+  misses          <- forecast != actual_trend
+  n_trades        <- sum(diff(forecast) != 0, na.rm = TRUE)
+  buy_and_hold_return <- sum(next_day)
+  strat_return    <- sum(next_day * forecast)
   l <- length(result)
-  3 * (sum(misses) / l + n_trades / l)
+  (sum(misses) / l + n_trades / l + (strat_return - buy_and_hold_return))
 }
 
 # Lag target by 1. Since the signal will be generated on close, it cannot be
 # used until the next day.
 training_close  <- TrainingData[, close]
-next_day        <- stats::lag(training_close, 1) |> diff() |> na.omit()
+
+# Written by ChatGPT - the list of corner cases was beyond my experience
+validate_result <- function(result, training) {
+  if (is.null(result)) return(FALSE)
+  if (!xts::is.xts(result)) return(FALSE)
+  if (NROW(result) != NROW(training)) return(FALSE)
+  if (NCOL(result) != 1) return(FALSE)
+  if (NROW(result) == 0) return(FALSE)
+  if (all(is.na(result))) return(FALSE)
+  if (any(is.infinite(as.numeric(result)))) return(FALSE)
+  s <- sign(as.numeric(result))
+  if (!any(s != 0, na.rm = TRUE)) return(FALSE)
+  TRUE
+}
 
 indicator_fit <- \(expr) {
-  result <- eval(expr, envir = env) |> na.omit() 
-  if (is.null(result) || any(!is.finite(result)) || length(result) <= 1) # Sometimes all that is returned is a scalar, but we don't want those
+  result <- eval(expr, envir = env)
+  if (!validate_result(result, training_close))
   {
     return(Inf)
   }
   else {
     # if (sd(result, na.rm = TRUE) < 1e-6) return(Inf) # Don't allow very stable results through - they will just copy the asset
-    cost <- apply_expression(result, next_day)
+    cost <- assess_fit(result, training_close)
     if (is.na(cost)) browser()
     cost
   }
@@ -178,7 +172,7 @@ ge <- GrammaticalEvolution(forecasting_grammar,
 # Evaluation
 ForecastingModel  <- ge$best$expressions[1]
 result            <- with(TestingData, eval(ForecastingModel))
-error             <- apply_expression(result, TestingData[, close])
+error             <- assess_fit(result, TestingData[, close])
 
 # Trading strategy, assuming we blindly apply:
 #
