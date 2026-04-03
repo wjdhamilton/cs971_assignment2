@@ -11,7 +11,7 @@ library(BatchGetSymbols)
 data_start <- "2000-01-01"
 data_end   <- "2026-01-01"
 
-tkr <- "BZ=F"
+tkr <- "AAPL"
 
 # Download into a named list (preserves order)
 FullDataXTS <- getSymbols(tkr, src = "yahoo",
@@ -45,7 +45,7 @@ high   <- paste0(tkr, ".High")
 low    <- paste0(tkr, ".Low")
 close  <- paste0(tkr, ".Close")
 
-fields <- c(open, high, low, close)
+fields <- c(open, high, low, close, volume)
 field_rules <- lapply(fields, as.symbol)
 
 # These functions wrap functions that can return NA and rturn 0 instead. Using
@@ -85,12 +85,14 @@ ema <- \(data, n) (TTR::EMA(data, n) |> na.omit())
 dema <- \(data, n, v) (TTR::DEMA(data, n, v) |> na.omit())
 evwma <- \(data, v, n) (TTR::EVWMA(data, v, n) |> na.omit())
 
-comp <- function(a, b) {
-  ab <- merge(a, b, join = "left")
-  out <- ifelse(ab[, 1] > ab[, 2], 1L, 0L)
-  out[is.na(out)] <- 0L
-  ab[, 1] <- out
-  ab[, 1, drop = FALSE]
+comp <- function(aspect, strategy) {
+  ab <- merge(aspect, strategy, join = "left")
+  signal <- xts(rep(0L, NROW(ab)), order.by = index(ab))
+  # Go long
+  signal[ab[,1] > ab[,2]] <-  1L
+  # Go short
+  signal[ab[,1] < ab[,2]] <- -1L
+  signal
 }
 
 indicator_rules <- list(expr        = grule(compare(aspect, transform)),
@@ -99,10 +101,10 @@ indicator_rules <- list(expr        = grule(compare(aspect, transform)),
                                             op(transform, aspect),
                                             indic
                                             ),
-                        op          = grule('+', '-', '*'),
-                        indic       = grule(sma(aspect, const),
-                                            ema(aspect, const),
-                                            dema(aspect, const, dema_v)
+                        op          = grule('+', '-'),
+                        indic       = grule(sma(aspect, const)
+                                            # ema(aspect, const),
+                                            # dema(aspect, const, dema_v)
                                             ),
                         aspect      = do.call(grule, field_rules),
                         dema_v      = gvrule(seq(0,0.9,by = 0.1)),
@@ -114,18 +116,29 @@ forecasting_grammar <- CreateGrammar(indicator_rules)
 
 ######################## Fitness Function and GP
 
+# Assume
 assess_fit <- \(result, data) {
+  stopifnot(is.xts(result) && is.xts(data))
+  stopifnot(NROW(result) == NROW(data))
   idx             <- index(result)
-  next_day        <- stats::lag(data, 1) |> na.omit()
+  next_day        <- stats::lag(data, -1)  |> na.omit()
   next_day        <- next_day[idx] # Force the training data to align with result
-  actual_trend    <- sign(diff(next_day))   |> na.omit()
+  actual_returns  <- diff(next_day)       |> na.omit()
+  actual_trend    <- sign(actual_returns)
   forecast        <- sign(result)
   misses          <- forecast != actual_trend
   n_trades        <- sum(diff(forecast) != 0, na.rm = TRUE)
-  buy_and_hold_return <- sum(next_day)
-  strat_return    <- sum(next_day * forecast)
+  buy_and_hold    <- sum(actual_returns)
+  # Calculating strat return requires properly aligning the datasets on their
+  # date. Since next_day is lagged, forecast should be longer. We therefore 
+  # want to keep forecast's index and merge onto that. 
+  # Using actual_trend * next_day causes xts to automatically align the dates,
+  # leading to look-ahead bias
+  aligned         <- merge(forecast, actual_returns, join = "inner")
+  strat_return    <- (coredata(aligned[,1]) * coredata(aligned[,2])) |> sum()
   l <- length(result)
-  (sum(misses) / l + n_trades / l + (strat_return - buy_and_hold_return))
+  cost <- (buy_and_hold - strat_return) + 0.1
+  cost
 }
 
 # Lag target by 1. Since the signal will be generated on close, it cannot be
@@ -155,6 +168,7 @@ indicator_fit <- \(expr) {
   else {
     # if (sd(result, na.rm = TRUE) < 1e-6) return(Inf) # Don't allow very stable results through - they will just copy the asset
     cost <- assess_fit(result, training_close)
+    if(length(cost) > 1) browser()
     if (is.na(cost)) browser()
     cost
   }
@@ -164,7 +178,7 @@ indicator_fit <- \(expr) {
 # Run
 ge <- GrammaticalEvolution(forecasting_grammar,
                            indicator_fit,
-                           terminationCost = 0.05,
+                           terminationCost = -Inf,
                            verbose = TRUE,
                            iterations = 100,
                            max.depth = 5)
@@ -178,7 +192,7 @@ error             <- assess_fit(result, TestingData[, close])
 #
 # LONG if result is positive
 # SHORT otherwise
-test_set      <- stats::lag(TestingData[, close], 1) |> diff() |> na.omit()
+test_set      <- stats::lag(TestingData[, close], -1) |> diff() |> na.omit()
 common_dates  <- intersect(index(result), index(test_set))
 result        <- result[common_dates]
 test_set      <- test_set[common_dates]
@@ -218,3 +232,4 @@ lines(cumsum(test_set), col = "red")
 tail(cumsum(actual_pnl), 1)
 tail(cumsum(shuffled_pnl), 1)
 tail(cumsum(test_set), 1)
+print(ForecastingModel)

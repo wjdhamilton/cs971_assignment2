@@ -35,10 +35,15 @@ two-sided. It either biases long or short, and if the overall trend is long then
 long wins. Going to try directional ratio (i.e. indicator's nlong/nbars v
 asset's nlong/nbars)
 
+If the GP can just copy the asset, it probably will. Need to remove solutions 
+that are either always so large tanh is always positive or are very consistently
+positive with the same effect. 
+
 # TODO
 o Change length() to NROW() since length counts all the _elements_ in a
 collection
 
 
 # Noteworhy Runs
-AAPL: expression(tanh(High - p_log(exp(ema(Low, 183L)))))
+expression(tanh(High - p_log(exp(ema(Low, 183L))))) - high performance on
+Apple and BZ=F
