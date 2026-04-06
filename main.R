@@ -135,8 +135,24 @@ p_cos <- \(num) {
 
 
 
-# Grammar - note that the data rule, rhich references the columns of the lagged
-# dataset is introduced during processing
+# This makes the Lag_1, Lag_2 etc. argument find its way to the TrainingData frame
+env <- list2env(as.list(TrainingData), parent = .GlobalEnv)
+
+# Fitness function (RMSE)
+forecastingfitnessRMSE <- function(expr) {
+  result <- eval(expr, envir = env)
+  if (any(is.nan(result)))
+    Inf
+  else
+    sqrt(mean((TrainingData[, close] - result)^2))
+}
+
+# Helper function that returns a scalar from the cor function. Cannot be used 
+# with xts objects or other collections with more than 2 columns
+cor_scalar <- function(x, y) as.numeric(cor(x, y))
+var_scalar <- function(x) as.numeric(var(x))
+
+# Grammar
 ForecastingRules <- list(expr       = grule(op(arithmetic, arithmetic),
                                             reducer(lists),
                                             func(arithmetic),
@@ -177,17 +193,10 @@ log_diff_processor  <- \(data) data |> log() |> diff() |> na.omit()
 log_post_processor      <- \(data) exp(data)
 log_diff_post_processor <- \(data) data |> cumsum() |> exp()
 
-tkr  <- "KGF.L"
+pred_test <- with(TestingData, eval(ForecastingModel))
+# pred_test <- lag.xts(pred_test, k = -1)
 
-run_GP(ForecastingRules,
-       fitness,
-       min_lag,
-       max_lag,
-       data_start,
-       data_end,
-       tkr,
-       pre_processor  = log_processor,
-       post_processor = log_post_processor)
+cls <- TestingData[, close]
 
 ############################# Technical Analysis Indicators ####################
 sma <- \(data, n) rowMeans(data[, 2:n], na.rm = TRUE)
