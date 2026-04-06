@@ -206,30 +206,34 @@ model_signal <- cumsum(sign(result) * test_set)
 no_shorts_signal <- cumsum(ifelse(sign(result) > 0, 1, 0) * test_set)
 
 
-################ Shuffle Test - from ChatGPT
+################ Permutation Test 
 
 sig <- sign(zoo::na.fill(stats::lag(result, 1), 0))
 
-shuffled_test <- xts::xts(
-  sample(as.numeric(test_set)),
-  order.by = index(test_set)
-)
+shuffle <- \(data) { 
+  xts::xts(
+           sample(as.numeric(data)),
+           order.by = index(data)
+  )
+}
 
-actual_pnl <- sig * test_set
-shuffled_pnl <- sig * shuffled_test
+actual_pnl    <- sig * test_set
+shuffled_data <- numeric(0)
 
-print(head(cbind(
-  Actual = as.numeric(test_set),
-  Shuffled = as.numeric(shuffled_test),
-  Actual.PnL = as.numeric(actual_pnl),
-  Shuffled.PnL = as.numeric(shuffled_pnl)
-)))
+max_test <- 1000
+
+for (i in 1:max_test) {
+  shuffled_pnl <- sum(sig * shuffle(test_set))
+  shuffled_data <- c(shuffled_data, shuffled_pnl)
+}
+
+shuffle_mean  <- mean(shuffled_data)
+shuffle_sd    <- sd(shuffled_data)
+actual_ret    <- sum(actual_pnl)
+print(dnorm(actual_ret, mean = shuffle_mean, sd =shuffle_sd))
 
 plot(cumsum(actual_pnl), col = "black")
 lines(cumsum(shuffled_pnl), col = "blue")
 lines(cumsum(test_set), col = "red")
 
-tail(cumsum(actual_pnl), 1)
-tail(cumsum(shuffled_pnl), 1)
-tail(cumsum(test_set), 1)
-print(ForecastingModel)
+cat("Model ", str(ForecastingModel))
