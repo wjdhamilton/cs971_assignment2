@@ -95,24 +95,48 @@ comp <- function(aspect, strategy) {
   signal
 }
 
-indicator_rules <- list(expr        = grule(compare(aspect, transform)),
-                        compare     = grule(comp),
-                        transform   = grule(op(transform, indic),
-                                            op(transform, aspect),
-                                            indic
-                                            ),
-                        op          = grule('+', '-'),
-                        indic       = grule(sma(aspect, const)
-                                            # ema(aspect, const),
-                                            # dema(aspect, const, dema_v)
-                                            ),
-                        aspect      = do.call(grule, field_rules),
-                        dema_v      = gvrule(seq(0, 0.9,by = 0.1)),
-                        const       = gvrule(2:200),
-                        vol         = grule(volume)
-                      )
+# indicator_rules <- list(expr        = grule(compare(aspect, transform)),
+#                         compare     = grule(comp),
+#                         transform   = grule(op(transform, indic),
+#                                             op(transform, aspect),
+#                                             indic
+#                                             ),
+#                         op          = grule('+', '-'),
+#                         indic       = grule(sma(aspect, const)
+#                                             # ema(aspect, const),
+#                                             # dema(aspect, const, dema_v)
+#                                             ),
+#                         aspect      = do.call(grule, field_rules),
+#                         dema_v      = gvrule(seq(0, 0.9,by = 0.1)),
+#                         const       = gvrule(2:200),
+#                         vol         = grule(volume)
+#                       )
 
-forecasting_grammar <- CreateGrammar(indicator_rules)
+# forecasting_grammar <- CreateGrammar(indicator_rules)
+
+g_roll <- \(data, n, f) zoo::rollapply(data, n, f)
+
+indicator_components <- list(expr       = grule(compare(left_side, right_side)),
+                             compare    = grule(comp),
+                             left_side  = grule(aspect, indicator),
+                             right_side = grule(indicator),
+                             indicator  = grule(g_roll(aspect, const, reducer)),
+                             scalar     = grule(op(scalar, scalar), 
+                                                reducer(list),
+                                                univariate,
+                                                integer_const,
+                                                const
+                                                ),
+                             reducer    = grule(sum, mean),
+                             list       = grule(aspect,
+                                                op(list, list),
+                                                tail(list)
+                                                ),
+                             aspect     = do.call(grule, field_rules),
+                             const      = gvrule(2:200)
+                             )
+
+forecasting_grammar <- CreateGrammar(indicator_components)
 
 ######################## Fitness Function and GP
 
@@ -181,7 +205,7 @@ ge <- GrammaticalEvolution(forecasting_grammar,
                            indicator_fit,
                            terminationCost = -Inf,
                            verbose = TRUE,
-                           iterations = 100,
+                           iterations = 10,
                            max.depth = 5)
 
 # Evaluation
