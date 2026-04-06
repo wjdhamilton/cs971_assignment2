@@ -5,4 +5,12 @@ o low sensitivity to news shocks
 o no derivates ( keeping in simple as derivatives would encourage analysis in to underlying )
 o no dividends ( affects price in no systematic way learnable by a model)
 
-##
+### Exploratory Data Analysis 
+o Close & Adjusted close were identical due to no dividends. Thus Adjusted Close was dropped
+
+
+### Forecasting 
+o Feeding the raw price data to the GP resulted in the best 1-step-ahead forecastor to be taking lag 1. with a RMSE of 1.5 over the training split.
+
+o Though this is an uninteresting result, it is supported by literature as under the Efficient Market Hypothesis, there should be no systematically exploitable pattern in the price. Thus giving prices the Martingale property of E(P(t+1)) = P(t) 
+o To obrain stationarity requireed for finacial time-series modelling, Parameters were logged and first differenced. Feeding this into the GP resulted 
