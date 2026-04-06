@@ -20,3 +20,30 @@ really want the latter, and we get it often.
 o Since it now works with a single dataframe, we should make all the column
 refereces dynamic so changing ticker means just changing its name at the
 start
+
+# Activation Function
+o The sigmoid function (p_logis) is always positive, so, in this context will 
+always return a long / buy and hold position. Removed. 
+
+# Indicators
+o BRK-B and AAPL both trend upwards almost constantly. Correct strategy = buy and
+hold. Therefore, any function that returns ~ 1 for all values will score well. 
+
+We need less predictable data. => This did not help. The fitness function simply
+rewards the most positive overall result, and suspect that it cannot be
+two-sided. It either biases long or short, and if the overall trend is long then
+long wins. Going to try directional ratio (i.e. indicator's nlong/nbars v
+asset's nlong/nbars)
+
+If the GP can just copy the asset, it probably will. Need to remove solutions 
+that are either always so large tanh is always positive or are very consistently
+positive with the same effect. 
+
+# TODO
+o Change length() to NROW() since length counts all the _elements_ in a
+collection
+
+
+# Noteworhy Runs
+expression(tanh(High - p_log(exp(ema(Low, 183L))))) - high performance on
+Apple and BZ=F

@@ -2,11 +2,6 @@ library(quantmod)
 library(GA)
 library(TTR)
 
-berk_s <- "BRK-B"
-getSymbols("BRK-B", src = "yahoo")
-berk_s <- get(berk_s)
-closes <- berk_s$`BRK-B.Close`
-
 # Fitness functions
 # ------------------------------------------------------------------------------
 # These ought to be combined into a single function for the purposes of 
@@ -15,19 +10,23 @@ closes <- berk_s$`BRK-B.Close`
 # Fitness for trade execution
 library(PerformanceAnalytics) # for the Sortino Ratio
 
-trade_penalty <- \(n) n/(n+1)
-drawdown <- \(trades) NaN
-mean_return <- \(trades) NaN
+mean_return   <- \(trades)  stop("undefined")
+drawdown      <- \(trades)  stop("undefined")
+trade_penalty <- \(traders) stop("undefined")
+sortino       <- \(min_return, trades) stop("undefined")
 
 risk_engine_f <- function(alpha, beta, gamma, delta, trades) {
-  alpha * SortinoRatio(trades, min_return) + beta * trade_penalty - gamma * drawdown + delta * mean_return
+  st  <- sortino(trades)
+  mr  <- mean_return(trades)
+  d   <- drawdown(trades)
+  tp  <- trade_penalty(trades)
+  alpha * st + beta * mr + gamma * d + delta * tp
 }
 
 # Market server
 # This simulates a stream of incoming data from the market. It works through a
 # callback function that gives the main application access to the dataset as
 # though it were coming from a market server.
-
 market <- function(listener) {
   for (i in closes) {
     listener(i)
@@ -35,73 +34,82 @@ market <- function(listener) {
 }
 
 
-mk_signal <- function(close, signal, time) {
-  list(close = close, signal = signal, time = time)
+mk_signal <- function(price, signal, time, profit) {
+  list(price = price, signal = signal, time = time, profit = profit)
 }
+
+get_close <- \(ohlcv) stop("undefined")
+
+get_timestamp <- \(timestamp) stop("undefined")
 
 # Signal
 # This function takes market data and generates a signal which it broadcasts to
 # the risk engine
-forecaster <- function(calc_forecast, notify_risk_engine) {
+forecaster <- function(notify_risk_engine, calc_signal) {
   # Store for price data (can be changed)
   prices <- numeric(0)
+
 
   # This is the part that the market communicates with. It's a closure, which
   # means that the forecaster function enclosing it is its environment and
   # information can be saved into the forecaster environment with the <<- operator.
   function(ohlcv) {
-    prices <- 1 # TODO need to append a row to an xts object
-    # TODO need a function that converts prices to an object that forecast expects
-    f <- with(prices, calc_forecast) # Assuming that prices is an xts object of the same shape and format as that which the expression expects
-    signal <- mk_signal(signal = f, time = t)
+    prices <<- c(prices, ohlcv)
+    c <- get_close(ohlcv)
+    s <- calc_signal(prices)
+    t <- get_timestamp(ohlcv)
+    signal <- mk_signal(price = ohlcv, signal = s, time = t)
     notify_risk_engine(signal)
   }
 }
 
 # A trade object, which is a record of how much, at what price, and when.
 # Negative units indicate a sale, positive a buy. Charges are updated by the
-# executor
+# executor. Trades can be either 'OPEN' or 'Closed'
 make_trade <- function(price, units, time) {
-  list(price = price, units = units, time = time, charge = NULL)
+  list(price = price, units = units, time = time, charge = NULL, status = "OPEN")
 }
 
 # Same idea as above, the risk engine is another closure which will keep a track
 # of the risk engine's state. TODO: needs to know the market price as well in
 # order to calculate running profits and decide whether or not to open / close
 # positions
+
+# Things that can be done with an asset
+
+trades <- c()
+account <- 100 # Dummy value for MVP
+
 risk_engine <- function(executor) {
-  trades <- c()
-  account <- 100 # Dummy value for MVP
 
-  assess_signal <- \(signal) {
-    "BUY"
-  }
-
-  assess_trade <- \(signal, trade) {
-    "HOLD"
-  }
+  assess_signal <- \(signal) stop("undefined")
+  assess_trade  <- \(trade)  stop("undefined")
+  size_position <- \() stop("undefined")
 
   function(signal) {
-    action <- assess_signal(signal)
-    if (action == "LONG") {
-      go_long
-    } else if (action == "SHORT") {
-      go_short
+    assessment <- assess_signal(signal)
+    if (assessment == "BUY") {
+      size <- size_position()
+      trade <- make_trade(signal$price, size, signal$time)
+      price <- executor(trade)
+      trades <- c(trades, trade)
+
+    } else if (assessment == "SELL") {
+      size <- size_position()
+      trade <- make_trade(signal$price, size, signal$time)
+      trades <- c(trades, trade)
     }
 
+    # Check if any of the trades need to be changed
     for (t in trades) {
-      action <- assess_trade(t)
-      if (action == "CLOSE") {
-        cl <- close_trade(t)
-        
+      assessment <- asssess_trade(signal)
+      if (assessment == "CLOSE") {
+        trade <- make_trade(signal$price, -(t$size), signal$time)
+        trade <- exeutor(trade)
+        trade$status <- "CLOSED"
+        # TODO will this mutation propogate to the trade in the list?
+        # TODO how will the system know if the trades are open or not?
       }
-    }
-
-    # do something with the executor to check price of trade and then execute
-    # trade if OK.
-    trade <- make_trade(signal$price, 1, signal$time)
-    trades <- c(trades, trade)
-    cat(str(executor(trade)))
   }
 }
 
@@ -130,7 +138,3 @@ trade_executor() |> risk_engine() |> forecaster() |> market()
 # and the current portfolio, should the system act on that signal and how large
 # should the response (in terms of units purchased or proportion of the account)
 # be?
-
-# Trade execution
-# Can't really do much here withot an exchange. Could probably just pop it in as
-# a nod to the idea that a real system would need one.
