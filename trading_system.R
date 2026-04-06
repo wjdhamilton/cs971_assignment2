@@ -35,7 +35,6 @@ for (i in 2:NROW(data_set)) {
              }
            }
   )
-
   # Signals on early data are likely to produce NA since the strategy will probably
   # use moving averages. Skip these, but keep adding to past_data
   latest_data <- data_set[i]
@@ -51,6 +50,7 @@ for (i in 2:NROW(data_set)) {
   signal <- as.numeric(last(model))
   # Do some trading
   current_direction <- open_position$direction
+  latest_close <- as.numeric(latest_data[, close])
 
   if(current_direction != signal){
     #Close the current position
@@ -72,7 +72,6 @@ for (i in 2:NROW(data_set)) {
 }
 
 trade_profit <- \(trade) (trade$direction * (trade$close_price - trade$open) - trade$fee)
-
 total_profit <- lapply(closed_trades, trade_profit) |> as.numeric() |> sum()
 
 print(total_profit)
