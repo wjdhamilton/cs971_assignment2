@@ -83,11 +83,12 @@ theory financial assets are understood to frequently behave like martingales,
 particularly at higher time frames due to market efficiency. Martingales have
 the particular property that $E[X_t+1 | X_{t}, X_{t-1} ... X_n] = X_{t}]$ or,
 more prosaically, the best forecast of tomorrow's price is today's. The above
-result strongly suggests that these stocks, and many if not all others, are
-martingales, which strongly suggests that the price series alone cannot be used
-to forecast future prices. What we need is a algorithm that can deduce an
+result strongly suggests that these stocks, and no doubt many others, are
+martingales, which suggests that the price series alone cannot be used
+to forecast future prices. We need is a algorithm that can deduce an
 assets future behaviour, rather than a precise forecast. 
 
 # Technical Analysis
 
-
+Technical analysis is the prediction of future price action using historical 
+price data. 

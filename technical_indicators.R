@@ -80,9 +80,9 @@ p_cos <- \(num) {
 # accessed using column names as symbols
 env <- list2env(as.list(TrainingData), parent = .GlobalEnv)
 
-sma <- \(data, n) (TTR::SMA(data, n) |> na.omit())
-ema <- \(data, n) (TTR::EMA(data, n) |> na.omit())
-dema <- \(data, n, v) (TTR::DEMA(data, n, v) |> na.omit())
+sma   <- \(data, n) (TTR::SMA(data, n) |> na.omit())
+ema   <- \(data, n) (TTR::EMA(data, n) |> na.omit())
+dema  <- \(data, n, v) (TTR::DEMA(data, n, v) |> na.omit())
 evwma <- \(data, v, n) (TTR::EVWMA(data, v, n) |> na.omit())
 
 comp <- function(aspect, strategy) {
@@ -107,7 +107,7 @@ indicator_rules <- list(expr        = grule(compare(aspect, transform)),
                                             # dema(aspect, const, dema_v)
                                             ),
                         aspect      = do.call(grule, field_rules),
-                        dema_v      = gvrule(seq(0,0.9,by = 0.1)),
+                        dema_v      = gvrule(seq(0, 0.9,by = 0.1)),
                         const       = gvrule(2:200),
                         vol         = grule(volume)
                       )
@@ -125,7 +125,7 @@ assess_fit <- \(result, data) {
   next_day        <- next_day[idx] # Force the training data to align with result
   actual_returns  <- diff(next_day)       |> na.omit()
   actual_trend    <- sign(actual_returns)
-  forecast        <- sign(result)
+  forecast        <- result # Just in case we need to preprocess result in future versions
   misses          <- forecast != actual_trend
   n_trades        <- sum(diff(forecast) != 0, na.rm = TRUE)
   buy_and_hold    <- sum(actual_returns)
@@ -197,6 +197,7 @@ common_dates  <- intersect(index(result), index(test_set))
 result        <- result[common_dates]
 test_set      <- test_set[common_dates]
 signal        <- (sign(result) * test_set) |> cumsum()
+
 plot(signal)
 lines(cumsum(test_set), col = 2)
 print(ForecastingModel)
