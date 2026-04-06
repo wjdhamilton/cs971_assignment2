@@ -135,9 +135,11 @@ assess_fit <- \(result, data) {
   # Using actual_trend * next_day causes xts to automatically align the dates,
   # leading to look-ahead bias
   aligned         <- merge(forecast, actual_returns, join = "inner")
-  strat_return    <- (coredata(aligned[,1]) * coredata(aligned[,2])) |> sum()
+  return_path     <- coredata(aligned[,1]) * coredata(aligned[,2])
+  strat_return    <- return_path |> sum()
   l <- length(result)
-  cost <- (buy_and_hold - strat_return) + 0.1
+  cost <- (buy_and_hold - strat_return) + 0.1 + (n_trades / n_trades + 1)
+  if (is.na(cost)) browser()
   cost
 }
 
@@ -169,7 +171,6 @@ indicator_fit <- \(expr) {
     # if (sd(result, na.rm = TRUE) < 1e-6) return(Inf) # Don't allow very stable results through - they will just copy the asset
     cost <- assess_fit(result, training_close)
     if(length(cost) > 1) browser()
-    if (is.na(cost)) browser()
     cost
   }
 }
@@ -231,7 +232,9 @@ for (i in 1:max_test) {
 shuffle_mean  <- mean(shuffled_data)
 shuffle_sd    <- sd(shuffled_data)
 actual_ret    <- sum(actual_pnl)
-print(dnorm(actual_ret, mean = shuffle_mean, sd =shuffle_sd))
+
+p_value <- pnorm(actual_ret, shuffle_mean, shuffle_sd, lower.tail = FALSE)
+print(p_value)
 
 plot(cumsum(actual_pnl), col = "black")
 lines(cumsum(shuffled_pnl), col = "blue")

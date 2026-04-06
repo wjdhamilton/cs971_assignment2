@@ -9,7 +9,7 @@ closed_trades <- list()
 # Any strategy will require more than 1 data point, so taking the first one at
 # this point isn't going to change anything but make accumulating the historical
 # data with xts.rbind a lot easier
-past_data     <- data_set[1] 
+past_data     <- data_set[1]
 
 # Construct a trade object. The close_price should never be empty on a 
 # closed trade; close_price == NULL represents a program failure

@@ -16,9 +16,76 @@ knitr::opts_chunk$set(echo = TRUE)
 library(quantmod)
 library(gramEvol)
 ```
+
 # Introduction
 
+In 1755 Homma Munehisa published his work "The Fountain of Gold - The Three
+Monkey Record of Money" which explained his approach to trading rice futures on
+the Dojima Rice Exchange. In it he stated that market sentiment is the critical
+driver of price action, and explained his system of price analysis now called
+"Candlestick Charting", one of the basic techniques of Technical Analysis - the
+discipline of inferring future price action from its history. 
+
+According to orthodox financial theory, such systems should not out-perform the
+market. Historical price information is available to the overwhelming majority
+of market participants, both amateur and professional, and so if any
+opportunity were to be gained from its analysis, it would be acted upon and
+disappear very quickly. This effect is one of several inferences drawn from the
+Efficient Market Hypothesis, the dominant theory of information-driven price
+action in modern finance[^1]. To the Efficient Market Hypothesis's adherents,
+technical analysis is little better than astrology [^2].
+
+However, this theory is not universally accepted, and has been coming under
+increased scrutiny since the early 1980s. Whilst it is certainly a good model
+of what it means for a market to be efficient, it does not follow that all
+markets are always efficient. For one thing, it is theoretically impossible
+that it is be absolutely true at all times [^3]. Secondly, several studies of
+major indices indicate that even deep markets can exhibit price
+autocorrelation, particularly in times of market stress [^4]. Thirdly, the
+performance of Renaissance Technologies' Medallion fund cannot be dismissed as
+just an anomaly [^5]. Indeed, it has been suggested that the plausibility of the
+Efficient Market Hypothesis is directly correlated to its fashionability [^6].
+In particular, Lo et al (ibid) provide evidence supporting the predictive power
+of several technical patterns. 
+
+Nonetheless, financial markets are fundamentally stochastic systems, which can
+be described in terms of a drift and stochastic parameter such as:
+
+$$
+  X_t = \theta X_{t-1} + \epsilon_{t}
+$$
+
+Where $\epsilon$ is a drift coefficient, $X_t$ is the price at time $t$ and
+$\epsilon$ is a random variable representing the effect of new information on
+the price. The question, therefore, is whether or not $\epsilon$ is a set of 
+identical, independently distributed, random variables, or not.
+
+## Modern Technical Analysis
+Modern 
+
+[^1] see, e.g. Hillier, D. (2024). eBook: Corporate Finance 5e. McGraw Hill
+
+[^2] see Lo, A.W., Mamaysky, H. and Wang, J. (2000). Foundations of
+Technical Analysis: Computational Algorithms, Statistical Inference, and
+Empirical Implementation. _The Journal of Finance_, 55(4), pp.1705–1765
+
+[^3] Grossman, S. J. and Stiglitz, J. E. (1980) 'On the Impossibility of
+Informationally Efficient Markets', The American Economic Review, 70(3), pp.
+393–408
+
+[^4] see, e.g. Rosini, L. and Shenai, V. (2020). Stock returns and calendar
+anomalies on the London Stock Exchange in the dynamic perspective of the
+Adaptive Market Hypothesis: A study of FTSE100 & FTSE250 indices over a ten
+year period. _Quantitative Finance and Economics_, 4(1), pp.121–147.
+
+[^5] 
+
+[^6] Gyamfi, E.N., Kyei, K.A. and Gill, R. (2017). Market efficiency of African
+stock markets: A Meta-Analysis. The Journal of Developing Areas, 51(4),
+pp.69–80. doi:https://doi.org/10.1353/jda.2017.0088.
+
 ## Price Forecasting
+
 Initially, we attempted to use gramEvol's genetic programming algorithm to 
 determine the price of a stock one period ahead. This strategy assumed that the
 price of a stock could be deduced from earlier prices. 
@@ -28,7 +95,7 @@ log returns with the following fitness function and grammar:
 
 ```{r forecasting}
 
-# Grammar - note that the data rule, rhich references the columns of the lagged
+# Grammar - note that the data rule, which references the columns of the lagged
 # dataset is introduced during processing
 ForecastingRules <- list(expr       = grule(op(arithmetic, arithmetic),
                                             reducer(lists),
@@ -84,11 +151,10 @@ particularly at higher time frames due to market efficiency. Martingales have
 the particular property that $E[X_t+1 | X_{t}, X_{t-1} ... X_n] = X_{t}]$ or,
 more prosaically, the best forecast of tomorrow's price is today's. The above
 result strongly suggests that these stocks, and no doubt many others, are
-martingales, which suggests that the price series alone cannot be used
-to forecast future prices. We need is a algorithm that can deduce an
-assets future behaviour, rather than a precise forecast. 
+martingales, which suggests that the price series alone cannot be used to
+forecast future prices. We need an algorithm that can deduce an assets future
+behaviour, rather than a precise forecast. 
 
 # Technical Analysis
 
-Technical analysis is the prediction of future price action using historical 
-price data. 
+
