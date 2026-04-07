@@ -80,17 +80,6 @@ p_cos <- \(num) {
 # poisoning the GP process, indicators return either a valid series or an empty
 # one that can be handled by other (particularly the comp) function.
 
-# Probably unnecessary but in here for completeness
-mk_guarded_indic <- \(f) {
-  function(data) {
-    tryCatch(f(data), error = \(e) return(data[0]))
-  }
-}
-
-# The Guppy Multiple Moving Average has some fairly sophisticated parameters that
-# would be hard to automate in the grammar, so just use the defaults
-gmma  <- mk_guarded_indic(TTR::GMMA)
-
 # Guard for indicators that take a price and 1 extra param
 mk_guarded_indic_1 <- \(f) {
   function(data, n) {
@@ -102,10 +91,14 @@ sma   <- mk_guarded_indic_1(TTR::SMA)
 ema   <- mk_guarded_indic_1(TTR::EMA)
 hma   <- mk_guarded_indic_1(TTR::HMA)
 obv   <- mk_guarded_indic_1(TTR::OBV)
+vhf   <- mk_guarded_indic_1(TTR::VHF)
 
 mk_guarded_indic_2 <- \(f) {
   function(data, a, b) {
-    tryCatch(f(data, a, b), error = \(e) return(data[0]))
+    tryCatch(f(data, a, b), error = \(e) {
+               browser()
+               return(data[0])}
+    )
   }
 }
 
@@ -114,37 +107,34 @@ mk_guarded_indic_2 <- \(f) {
 # and:
 # EMV, 
 # SAR ignored because it requires a merged HL series
-ewma  <- mk_guarded_indic_2(TTR::EWMA)
-vwap  <- mk_guarded_indic_2(TTR::VWAP)
+evwma  <- mk_guarded_indic_2(TTR::EVWMA)
+vwap   <- mk_guarded_indic_2(TTR::VWAP)
 
 
 # Although ZLEMA has a third ratio parameter, it is overridden by its second, 
 # the lag which is what will be focussed on
-zlema <- mk_guarded_indic_2(TTR::ZLEMA)
+zlema <- mk_guarded_indic_1(TTR::ZLEMA)
 
 mk_guarded_indic_3 <- \(f) {
   function(data, a, b, c) {
-    tryCatch(f(data, a, b, c), error = \(e) return(data[0]))
+    tryCatch(f(data, a, b, c), error = \(e) {
+               browser()
+               return(data[0])})
   }
 }
 
 alma <- mk_guarded_indic_3(TTR::ALMA)
+dema  <- mk_guarded_indic_3(TTR::DEMA)
 
-mk_guarded_indic_4 <- \(f) {
-  function(data, a, b, c, d) {
-    tryCatch(f(data, a, b, c, d), error = \(e) return(data[0]))
-  }
+# MACD requires its own wrapper since it returns multiple columns
+macd <- function(data, a, b, c, d) {
+  tryCatch({
+    TTR::MACD(data, a, b, c, maType = d)[, "macd"]
+  }, error = function(e) {
+    browser()
+    data[0]
+  })
 }
-
-macd <- mk_guarded_indic_4(TTR::MACD)
-
-mk_guarded_indic_5 <- \(f) {
-  function(data, a, b, c, d, e) {
-    tryCatch(f(data, a, b, c, d, e), error = \(e) return(data[0]))
-  }
-}
-
-dema  <- mk_guarded_indic_5(TTR::DEMA)
 
 g_tail <- \(data, n) {
   if (n >= NROW(data)) {
@@ -156,7 +146,10 @@ g_tail <- \(data, n) {
 comp <- function(aspect, strategy) {
   tryCatch({
     if(class(aspect)[1] == "integer") {
-      return(strategy - aspect)
+      signal <- xts(rep(0L, NROW(strategy)), order.by = index(strategy))
+      signal[aspect > strategy] <-  1L
+      signal[aspect < strategy] <- -1L
+      return(signal)
     } else {
     ab <- merge(aspect, strategy, join = "left")
     # Flag rows with NA in them. This usually refers to the lag period for 
@@ -186,26 +179,26 @@ indicator_rules <- list(expr        = grule(compare(aspect, transform),
                                             indic
                                             ),
                         op          = grule('+', '-'),
-                        indic       = grule(gmma(aspect),
-                                            sma(aspect, lag),
+                        indic       = grule(sma(aspect, lag),
                                             ema(aspect, lag),
                                             hma(aspect, lag),
+                                            vhf(aspect, lag),
                                             obv(aspect, vol),
                                             zlema(aspect, lag),
-                                            ewma(aspect, vol, lag),
+                                            evwma(aspect, vol, lag),
                                             vwap(aspect, vol, lag),
-                                            dema(aspect, lag, dema_v, bool),
+                                            dema(aspect, lag, ratio, bool),
                                             macd(aspect, const, const, const, maType)
                                             ),
                         aspect      = do.call(grule, price_rules),
-                        dema_v      = gvrule(seq(0.1, 1.5, by = 0.1)),
                         ratio       = gvrule(seq(0.1, 1.0, by = 0.1)),
                         # These are commonly used window sizes in technical analysis
                         lag         = gvrule(c(2L, 3L, 5L, 10L, 14L, 20L, 50L, 100L, 200L)),
-                        const       = gvrule(0:50),
+                        const       = gvrule(1:50),
                         bool        = grule(TRUE, FALSE),
-                        vol         = grule(volume),
-                        maType      = grule("EMA")
+                        vol         = do.call(grule, list(as.symbol(volume))),
+                        # Can't use WMA here
+                        maType      = grule("EMA", "SMA", "DEMA", "ZLEMA", "HMA")
                       )
 
 forecasting_grammar <- CreateGrammar(indicator_rules)
