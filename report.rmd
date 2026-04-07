@@ -26,27 +26,27 @@ driver of price action, and explained his system of price analysis now called
 "Candlestick Charting", one of the basic techniques of Technical Analysis - the
 discipline of inferring future price action from its history. 
 
-According to orthodox financial theory, such systems should not out-perform the
-market. Historical price information is available to the overwhelming majority
-of market participants, both amateur and professional, and so if any
-opportunity were to be gained from its analysis, it would be acted upon and
-disappear very quickly. This effect is one of several inferences drawn from the
-Efficient Market Hypothesis, the dominant theory of information-driven price
-action in modern finance[^1]. To the Efficient Market Hypothesis's adherents,
-technical analysis is little better than astrology [^2].
+According to orthodox financial theory, Technical Analysis should not
+out-perform the market. Historical price information is available to the
+overwhelming majority of market participants, both amateur and professional,
+and so if any opportunity were to be gained from its analysis, it would be
+acted upon and disappear very quickly. This effect is one of several inferences
+drawn from the Efficient Market Hypothesis, the dominant theory of
+information-driven price action in modern finance[^1]. To the Efficient Market
+Hypothesis's adherents, technical analysis is little better than astrology
+[^2].
 
 However, this theory is not universally accepted, and has been coming under
 increased scrutiny since the early 1980s. Whilst it is certainly a good model
-of what it means for a market to be efficient, it does not follow that all
-markets are always efficient. For one thing, it is theoretically impossible
-that it is be absolutely true at all times [^3]. Secondly, several studies of
-major indices indicate that even deep markets can exhibit price
-autocorrelation, particularly in times of market stress [^4]. Thirdly, the
-performance of Renaissance Technologies' Medallion fund cannot be dismissed as
-just an anomaly [^5]. Indeed, it has been suggested that the plausibility of the
-Efficient Market Hypothesis is directly correlated to its fashionability [^6].
-In particular, Lo et al (ibid) provide evidence supporting the predictive power
-of several technical patterns. 
+of what it means for a market to be efficient, and provides good grounds for
+believing they should be, it does not follow that markets are efficient. For
+one thing, perfectly efficient markets are themselves theoretically impossible
+[^3]. Secondly, several studies of major indices indicate that even deep
+markets can exhibit price autocorrelation, particularly in times of market
+stress [^4]. Thirdly, the performance of Renaissance Technologies' Medallion
+fund cannot be dismissed as just an anomaly [^5]. Indeed, it has been suggested
+that the acceptance of the universal application of the Efficient Market
+Hypothesis is directly correlated to its fashionability [^6]. 
 
 Nonetheless, financial markets are fundamentally stochastic systems, which can
 be described in terms of a drift and stochastic parameter such as:
@@ -60,8 +60,52 @@ $\epsilon$ is a random variable representing the effect of new information on
 the price. The question, therefore, is whether or not $\epsilon$ is a set of 
 identical, independently distributed, random variables, or not.
 
-## Modern Technical Analysis
-Modern 
+## Technical Indicators
+Modern technical analysis has many sub-disciplines, ranging from subjective 
+pattern-recognition, to high-frequency, fully-automated mathematical models. At
+the less subjective but still easily applied end of this spectrum lie a group
+of models called "technical indicators". These are popular with amateur 
+technical analysts because they are easy to understand and apply. Indeed, many
+of the most popular indicators were developed before high-power computing was
+widely available and were favoured because they are easy to compute. In fact, 
+most technical indicators are types of signal estimation filters used in signal
+processing [^7]. Because they are all variations on the same basic mathematical
+structure, and applied to the same datasets, they tend to correlate closely and
+fall into four key categories [^8]:
+
+1. *Momentum indicators*, which attempt to measure the speed of price movements.
+2. *Trend indicators*, which attempt to detect the current trend and its state.
+3. *Volatility indicators*, which indicate changes in trading activity and
+   uncertainty.
+4. *Volume indicators*, which measure market participation. e.g. A change in price
+   associated with high volume indicates a widespread conviction in the new 
+   regime.
+
+Consequently, they are usually used in combination with each other and other
+techniques such as candlestick analysis. In fact, indicators are often
+composed of other indicators. For example, the Exponential Moving Average:
+
+$$
+  EMA_{t} = \alpha P_{t} + (1-\alpha)EMA_{t-1}
+$$
+
+is the basis of the DEMA, ZLEMA, TRIX, and ATR indicators. 
+
+Given the above, our first query is whether or not there exists an optimal
+combination of indicators that can be effectively applied without subjective
+intervention, i.e. an automated trading system based on existing indicators. 
+
+Our second query was, given their homogenous nature and shared underpinnings, 
+whether or not a new indicator could be found by combining the shared mathematical
+components of these existing indicators in a new way. 
+
+To achieve this, we utilised R's gramEvol package to generate and test
+different combinations of indicators found in the TTR package. We also
+attempted to create a new indicator from the mathematical components of these
+indicators.
+
+ChatGPT was utilised as a research tool, code analysis, and debugging, but did
+not write any code. 
 
 [^1] see, e.g. Hillier, D. (2024). eBook: Corporate Finance 5e. McGraw Hill
 
@@ -70,7 +114,7 @@ Technical Analysis: Computational Algorithms, Statistical Inference, and
 Empirical Implementation. _The Journal of Finance_, 55(4), pp.1705–1765
 
 [^3] Grossman, S. J. and Stiglitz, J. E. (1980) 'On the Impossibility of
-Informationally Efficient Markets', The American Economic Review, 70(3), pp.
+Informationally Efficient Markets', _The American Economic Review_, 70(3), pp.
 393–408
 
 [^4] see, e.g. Rosini, L. and Shenai, V. (2020). Stock returns and calendar
@@ -78,11 +122,18 @@ anomalies on the London Stock Exchange in the dynamic perspective of the
 Adaptive Market Hypothesis: A study of FTSE100 & FTSE250 indices over a ten
 year period. _Quantitative Finance and Economics_, 4(1), pp.121–147.
 
-[^5] 
+[^5] TODO
 
 [^6] Gyamfi, E.N., Kyei, K.A. and Gill, R. (2017). Market efficiency of African
 stock markets: A Meta-Analysis. The Journal of Developing Areas, 51(4),
 pp.69–80. doi:https://doi.org/10.1353/jda.2017.0088.
+
+[^7] See Lo et al. (ibid) and Oppenheim, A.V. and Verghese, G.C. (2017).
+_Signals, systems and inference._ Harlow Pearson Education Limited.
+
+[^8] ‌portaladmin (2025). Axis Direct. [online] Axisdirect.in. Available at:
+https://simplehai.axisdirect.in/117-good-reads-ri/8935-series-22-types-of-technical-indicators
+\[Accessed 7 Apr. 2026\].
 
 ## Price Forecasting
 

@@ -11,7 +11,7 @@ library(BatchGetSymbols)
 data_start <- "2000-01-01"
 data_end   <- "2026-01-01"
 
-tkr <- "AAPL"
+tkr <- "BZ=F"
 
 # Download into a named list (preserves order)
 FullDataXTS <- getSymbols(tkr, src = "yahoo",
@@ -45,8 +45,8 @@ high   <- paste0(tkr, ".High")
 low    <- paste0(tkr, ".Low")
 close  <- paste0(tkr, ".Close")
 
-fields <- c(open, high, low, close, volume)
-field_rules <- lapply(fields, as.symbol)
+price_aspects <- c(open, high, low, close)
+price_rules <- lapply(price_aspects, as.symbol)
 
 # These functions wrap functions that can return NA and rturn 0 instead. Using
 # Inf doesn't work since it makes the trig functions return NA.
@@ -76,69 +76,168 @@ p_cos <- \(num) {
 
 ############################# Technical Analysis Indicators ####################
 
-# Create an environment with all the variables up to this point that can be 
-# accessed using column names as symbols
-env <- list2env(as.list(TrainingData), parent = .GlobalEnv)
+# To guard against inappropriate parameters or meaningless values such as NULL
+# poisoning the GP process, indicators return either a valid series or an empty
+# one that can be handled by other (particularly the comp) function.
 
-sma   <- \(data, n) (TTR::SMA(data, n) |> na.omit())
-ema   <- \(data, n) (TTR::EMA(data, n) |> na.omit())
-dema  <- \(data, n, v) (TTR::DEMA(data, n, v) |> na.omit())
-evwma <- \(data, v, n) (TTR::EVWMA(data, v, n) |> na.omit())
-
-comp <- function(aspect, strategy) {
-  ab <- merge(aspect, strategy, join = "left")
-  signal <- xts(rep(0L, NROW(ab)), order.by = index(ab))
-  # Go long
-  signal[ab[,1] > ab[,2]] <-  1L
-  # Go short
-  signal[ab[,1] < ab[,2]] <- -1L
-  signal
+# Probably unnecessary but in here for completeness
+mk_guarded_indic <- \(f) {
+  function(data) {
+    tryCatch(f(data), error = \(e) return(data[0]))
+  }
 }
 
-# indicator_rules <- list(expr        = grule(compare(aspect, transform)),
-#                         compare     = grule(comp),
-#                         transform   = grule(op(transform, indic),
-#                                             op(transform, aspect),
-#                                             indic
-#                                             ),
-#                         op          = grule('+', '-'),
-#                         indic       = grule(sma(aspect, const)
-#                                             # ema(aspect, const),
-#                                             # dema(aspect, const, dema_v)
-#                                             ),
-#                         aspect      = do.call(grule, field_rules),
-#                         dema_v      = gvrule(seq(0, 0.9,by = 0.1)),
-#                         const       = gvrule(2:200),
-#                         vol         = grule(volume)
-#                       )
+# The Guppy Multiple Moving Average has some fairly sophisticated parameters that
+# would be hard to automate in the grammar, so just use the defaults
+gmma  <- mk_guarded_indic(TTR::GMMA)
 
-# forecasting_grammar <- CreateGrammar(indicator_rules)
+# Guard for indicators that take a price and 1 extra param
+mk_guarded_indic_1 <- \(f) {
+  function(data, n) {
+    tryCatch(f(data, n), error = \(e) return(data[0]))
+  }
+}
+
+sma   <- mk_guarded_indic_1(TTR::SMA)
+ema   <- mk_guarded_indic_1(TTR::EMA)
+hma   <- mk_guarded_indic_1(TTR::HMA)
+obv   <- mk_guarded_indic_1(TTR::OBV)
+
+mk_guarded_indic_2 <- \(f) {
+  function(data, a, b) {
+    tryCatch(f(data, a, b), error = \(e) return(data[0]))
+  }
+}
+
+# MFI ignored since it requires a merged HLC series
+# SNR ignored for same reason
+# and:
+# EMV, 
+# SAR ignored because it requires a merged HL series
+ewma  <- mk_guarded_indic_2(TTR::EWMA)
+vwap  <- mk_guarded_indic_2(TTR::VWAP)
+
+
+# Although ZLEMA has a third ratio parameter, it is overridden by its second, 
+# the lag which is what will be focussed on
+zlema <- mk_guarded_indic_2(TTR::ZLEMA)
+
+mk_guarded_indic_3 <- \(f) {
+  function(data, a, b, c) {
+    tryCatch(f(data, a, b, c), error = \(e) return(data[0]))
+  }
+}
+
+alma <- mk_guarded_indic_3(TTR::ALMA)
+
+mk_guarded_indic_4 <- \(f) {
+  function(data, a, b, c, d) {
+    tryCatch(f(data, a, b, c, d), error = \(e) return(data[0]))
+  }
+}
+
+macd <- mk_guarded_indic_4(TTR::MACD)
+
+mk_guarded_indic_5 <- \(f) {
+  function(data, a, b, c, d, e) {
+    tryCatch(f(data, a, b, c, d, e), error = \(e) return(data[0]))
+  }
+}
+
+dema  <- mk_guarded_indic_5(TTR::DEMA)
+
+g_tail <- \(data, n) {
+  if (n >= NROW(data)) {
+    data[0]
+  }
+  tail(data, n)
+}
+
+comp <- function(aspect, strategy) {
+  tryCatch({
+    if(class(aspect)[1] == "integer") {
+      return(strategy - aspect)
+    } else {
+    ab <- merge(aspect, strategy, join = "left")
+    # Flag rows with NA in them. This usually refers to the lag period for 
+    # indicators
+    ok <- is.finite(ab[, 1]) & is.finite(ab[, 2])
+    signal <- xts(rep(0L, NROW(ab)), order.by = index(ab))
+    # Go long
+    signal[ok & ab[,1] > ab[,2]] <-  1L
+    # Go short
+    signal[ok & ab[,1] < ab[,2]] <- -1L
+    # The series now has 1 or -1 for the signal, and 0 if the row is invalid
+    signal
+    }
+  }, error = \(e) {
+    browser()
+    return(aspect[0])
+  }
+  )
+}
+
+indicator_rules <- list(expr        = grule(compare(aspect, transform),
+                                            compare(const, transform ) # necessary for MACD etc
+                                            ),
+                        compare     = grule(comp),
+                        transform   = grule(op(transform, indic),
+                                            op(transform, aspect),
+                                            indic
+                                            ),
+                        op          = grule('+', '-'),
+                        indic       = grule(gmma(aspect),
+                                            sma(aspect, lag),
+                                            ema(aspect, lag),
+                                            hma(aspect, lag),
+                                            obv(aspect, vol),
+                                            zlema(aspect, lag),
+                                            ewma(aspect, vol, lag),
+                                            vwap(aspect, vol, lag),
+                                            dema(aspect, lag, dema_v, bool),
+                                            macd(aspect, const, const, const, maType)
+                                            ),
+                        aspect      = do.call(grule, price_rules),
+                        dema_v      = gvrule(seq(0.1, 1.5, by = 0.1)),
+                        ratio       = gvrule(seq(0.1, 1.0, by = 0.1)),
+                        # These are commonly used window sizes in technical analysis
+                        lag         = gvrule(c(2L, 3L, 5L, 10L, 14L, 20L, 50L, 100L, 200L)),
+                        const       = gvrule(0:50),
+                        bool        = grule(TRUE, FALSE),
+                        vol         = grule(volume),
+                        maType      = grule("EMA")
+                      )
+
+forecasting_grammar <- CreateGrammar(indicator_rules)
 
 g_roll <- \(data, n, f) zoo::rollapply(data, n, f)
 
-indicator_components <- list(expr       = grule(compare(left_side, right_side)),
-                             compare    = grule(comp),
-                             left_side  = grule(aspect, indicator),
-                             right_side = grule(indicator),
-                             indicator  = grule(g_roll(aspect, const, reducer)),
-                             scalar     = grule(op(scalar, scalar), 
-                                                reducer(list),
-                                                univariate,
-                                                integer_const,
-                                                const
-                                                ),
-                             reducer    = grule(sum, mean),
-                             list       = grule(aspect,
-                                                op(list, list),
-                                                tail(list)
-                                                ),
-                             aspect     = do.call(grule, field_rules),
-                             const      = gvrule(2:200)
-                             )
+# indicator_components <- list(expr       = grule(compare(left_side, right_side)),
+#                              compare    = grule(comp),
+#                              left_side  = grule(aspect, series),
+#                              right_side = grule(series),
+#                              scalar     = grule(op(scalar, scalar), 
+#                                                 reducer(series),
+#                                                 const
+#                                                 ),
+#                              reducer    = grule(sum, mean, sd),
+#                              series     = grule(aspect,
+#                                                 g_roll(aspect, const, reducer),
+#                                                 op(series, series),
+#                                                 ema(series, const)
+#                                                 ),
+#                              op         = grule('+', '-', '*', '/'),
+#                              aspect     = do.call(grule, price_rules),
+#                              const      = gvrule(2:200)
+#                              )
 
-forecasting_grammar <- CreateGrammar(indicator_components)
+# forecasting_grammar <- CreateGrammar(indicator_components)
 
 ######################## Fitness Function and GP
+
+# Create an environment with all the variables up to this point that can be 
+# accessed using column names as symbols
+env <- list2env(as.list(TrainingData), parent = .GlobalEnv)
 
 # Assume
 assess_fit <- \(result, data) {
@@ -162,9 +261,12 @@ assess_fit <- \(result, data) {
   return_path     <- coredata(aligned[,1]) * coredata(aligned[,2])
   strat_return    <- return_path |> sum()
   l <- length(result)
-  cost <- (buy_and_hold - strat_return) + 0.1 + (n_trades / n_trades + 1)
-  if (is.na(cost)) browser()
+  cost <- (buy_and_hold - strat_return) + 0.1 
+  if (is.na(cost)) {
+    Inf
+  } else {
   cost
+  }
 }
 
 # Lag target by 1. Since the signal will be generated on close, it cannot be
@@ -173,6 +275,7 @@ training_close  <- TrainingData[, close]
 
 # Written by ChatGPT - the list of corner cases was beyond my experience
 validate_result <- function(result, training) {
+  if (length(result) == 0L) return(FALSE) # Complement of guard in EMA
   if (is.null(result)) return(FALSE)
   if (!xts::is.xts(result)) return(FALSE)
   if (NROW(result) != NROW(training)) return(FALSE)
@@ -205,7 +308,7 @@ ge <- GrammaticalEvolution(forecasting_grammar,
                            indicator_fit,
                            terminationCost = -Inf,
                            verbose = TRUE,
-                           iterations = 10,
+                           iterations = 50,
                            max.depth = 5)
 
 # Evaluation
@@ -221,7 +324,7 @@ test_set      <- stats::lag(TestingData[, close], -1) |> diff() |> na.omit()
 common_dates  <- intersect(index(result), index(test_set))
 result        <- result[common_dates]
 test_set      <- test_set[common_dates]
-signal        <- (sign(result) * test_set) |> cumsum()
+signal        <- (result * test_set) |> cumsum()
 
 plot(signal)
 lines(cumsum(test_set), col = 2)

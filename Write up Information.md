@@ -41,9 +41,12 @@ positive with the same effect.
 
 # TODO
 o Change length() to NROW() since length counts all the _elements_ in a
-collection
+collection - DONE
+o Note that including n
 
 
 # Noteworhy Runs
 expression(tanh(High - p_log(exp(ema(Low, 183L))))) - high performance on
 Apple and BZ=F
+expression(comp(BZ.F.Low, dema(BZ.F.Low, 59L, 0.9) + BZ.F.Close - BZ.F.Open)) on
+BZ=F
