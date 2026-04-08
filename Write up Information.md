@@ -50,3 +50,4 @@ expression(tanh(High - p_log(exp(ema(Low, 183L))))) - high performance on
 Apple and BZ=F
 expression(comp(BZ.F.Low, dema(BZ.F.Low, 59L, 0.9) + BZ.F.Close - BZ.F.Open)) on
 BZ=F
+expression(comp(dema(BZ.F.Open, 14L, 0.1, FALSE) + BZ.F.High - hma(BZ.F.Close, 3L), zlema(BZ.F.Close,  100L))) on BZ=F after 20,000 iterations

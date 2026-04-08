@@ -1,17 +1,153 @@
-## Combinations of Indicators
+---
+title: "Trading Strategy"
+output:
+  pdf_document: default
+  html_document: default
+date: "2026-02-19"
+header-includes:
+  - \usepackage{bm}
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+# Introduction
 
-Our next avenue of investigation was whether or not different combinations of
-popular indicators could produce a reliable strategy. The strategy was to build
-a context-free grammar of indicators from the TTR package for optimisation in a
-Genetic Program. This involved wrapping the indicators to permit appropriate
-error handling and a detailed guard in the fitness function to catch the many
-ways that R's delightfully idiosyncratic behaviour can poison the genetic
-program tree by silently propogating inappropriate values.  
+In 1755 Homma Munehisa published his work "The Fountain of Gold - The Three
+Monkey Record of Money" which explained his approach to trading rice futures on
+the Dojima Rice Exchange. He stated that market sentiment is the critical
+driver of price action, and explained his system of price analysis now called
+Candlestick Charting, one of the basic techniques of Technical Analysis - the
+discipline of inferring future price action from its history. 
 
-The different indicators were selected in order to ensure all four of the 
-above categories of indicator were represented. 
+According to orthodox financial theory, Technical Analysis should not
+out-perform the market. Historical price information is available to the
+overwhelming majority of market participants, both amateur and professional,
+and so if any opportunity were to be gained from its analysis, it would be
+acted upon and disappear very quickly. This effect is one of several inferences
+drawn from the Efficient Market Hypothesis, the dominant theory of
+information-driven price action in modern finance. To the Efficient Market
+Hypothesis, technical analysis is little better than astrology [^2].
 
-```{r setup echo=FALSE}
+However, this theory is not universally accepted, and has been coming under
+increased scrutiny since the early 1980s. Whilst it is certainly a good model
+of what it means for a market to be efficient, and provides good grounds for
+believing they should be, it does not follow that markets are efficient. For
+one thing, perfectly efficient markets are themselves theoretically impossible
+[^3]. Secondly, several studies of major indices indicate that even deep
+markets can exhibit price autocorrelation, particularly in times of market
+stress [^4]. Thirdly, the performance of Renaissance Technologies' Medallion
+fund cannot be dismissed as just an anomaly [^5]. Indeed, it has been suggested
+that the acceptance of the universal application of the Efficient Market
+Hypothesis is directly correlated to its fashionability [^6]. 
+
+Nonetheless, financial markets are fundamentally stochastic systems, which can
+be described in terms of a drift and stochastic parameter such as:
+
+$$
+  X_t = \theta X_{t-1} + \epsilon_{t}
+$$
+
+Where $\epsilon$ is a drift coefficient, $X_t$ is the price at time $t$ and
+$\epsilon$ is a random variable representing the effect of new information on
+the price. An investor would like to know the signal, $\theta X_t$ and reject
+$\epsilon$, the noise. 
+
+## Technical Indicators
+Modern technical analysis has many sub-disciplines, ranging from subjective 
+pattern-recognition, to high-frequency, fully-automated mathematical models. At
+the less subjective but still easily applied end of this spectrum lie a group
+of models called "technical indicators". These are popular with amateur 
+traders because they are easy to understand and apply. Indeed, many
+of the most popular indicators were developed before high-power computing was
+widely available and were favoured because they are easy to compute. In fact, 
+most technical indicators are types of signal estimation filters used in signal
+processing [^7]. Because they are all variations on the same basic mathematical
+structure, they tend to correlate closely and fall into four key categories [^8]:
+
+1. *Momentum indicators*, attempt to measure the speed of price movements.
+2. *Trend indicators*, attempt to detect the current trend and its state.
+3. *Volatility indicators*, indicate changes in trading activity and
+   uncertainty.
+4. *Volume indicators*, measure market participation. e.g. A change in price
+   associated with high volume indicates a widespread conviction in the new 
+   regime.
+
+Consequently, they are usually used in combination with each other and other
+techniques. In fact, indicators are often composed of other indicators. For
+example, the Exponential Moving Average:
+
+$$
+  EMA_{t} = \alpha P_{t} + (1-\alpha)EMA_{t-1}
+$$
+
+is the basis of the DEMA, ZLEMA, TRIX, and ATR indicators. 
+
+Given the above, our first query is whether or not there exists an optimal
+combination of indicators that can be effectively applied without subjective
+intervention, i.e. an automated trading system based on existing indicators. 
+
+To achieve this, we utilised R's gramEvol package to generate and test
+different combinations of indicators found in the TTR package. 
+
+ChatGPT was utilised as a research tool, code analysis, and debugging, but did
+not write any code. 
+
+[^1] see, e.g. Hillier, D. (2024). eBook: Corporate Finance 5e. McGraw Hill
+
+[^2] see Lo, A.W., Mamaysky, H. and Wang, J. (2000). Foundations of
+Technical Analysis: Computational Algorithms, Statistical Inference, and
+Empirical Implementation. _The Journal of Finance_, 55(4), pp.1705–1765
+
+[^3] Grossman, S. J. and Stiglitz, J. E. (1980) 'On the Impossibility of
+Informationally Efficient Markets', _The American Economic Review_, 70(3), pp.
+393–408
+
+[^4] see, e.g. Rosini, L. and Shenai, V. (2020). Stock returns and calendar
+anomalies on the London Stock Exchange in the dynamic perspective of the
+Adaptive Market Hypothesis: A study of FTSE100 & FTSE250 indices over a ten
+year period. _Quantitative Finance and Economics_, 4(1), pp.121–147.
+
+[^5] TODO
+
+[^6] Gyamfi, E.N., Kyei, K.A. and Gill, R. (2017). Market efficiency of African
+stock markets: A Meta-Analysis. The Journal of Developing Areas, 51(4),
+pp.69–80. doi:https://doi.org/10.1353/jda.2017.0088.
+
+[^7] See Lo et al. (ibid) and Oppenheim, A.V. and Verghese, G.C. (2017).
+_Signals, systems and inference._ Harlow Pearson Education Limited.
+
+[^8] ‌portaladmin (2025). Axis Direct. [online] Axisdirect.in. Available at:
+https://simplehai.axisdirect.in/117-good-reads-ri/8935-series-22-types-of-technical-indicators
+Accessed 7 Apr. 2026.
+
+# Data
+
+Three datasets were chosen for analysis: Berkshire-Hathaway, Apple, and Brent-Crude.
+The former two are equities, which exhibit a general upward trend, and the latter
+is a commodity that fluctuates within a wide range. They were selected because they
+are actively traded instruments with differing returns and volatilities, representing
+different market regimes.
+
+# Trading Strategy
+
+A context-free grammar of indicators from the TTR package for optimisation in a
+Genetic Program was created. This involved wrapping the indicators to permit
+appropriate error handling and a detailed guard in the fitness function to
+catch the many ways that R's delightfully idiosyncratic behaviour can poison
+the genetic program tree by silently propogating inappropriate values.
+
+The indicators were selected in order to ensure that all four of the above
+categories of indicator were represented.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.height = 2.6,
+  out.width = "85%",
+  fig.pos = "!htbp"
+)
+
+set.seed(1230)
 ### Libraries #############
 library(gramEvol)
 library(quantmod)
@@ -19,12 +155,24 @@ library(xts)
 
 library(PerformanceAnalytics)
 library(BatchGetSymbols)
+rds_dir <- "ga_models"
+dir.create(rds_dir, showWarnings = FALSE)
+rerun_ga <- FALSE
+
+load_or_run_rds <- function(path, builder, rerun = rerun_ga) {
+  if (!rerun && file.exists(path)) {
+    readRDS(path)
+  } else {
+    obj <- builder()
+    saveRDS(obj, path)
+    obj
+  }
+}
 ### Custom Functions ##########
 ### Data Import #############
 data_start <- "2000-01-01"
 data_end   <- "2026-01-01"
-
-tkr <- "BZ=F"
+tkr <- "BRK-B"
 
 # Download into a named list (preserves order)
 FullDataXTS <- getSymbols(tkr, src = "yahoo",
@@ -32,67 +180,47 @@ FullDataXTS <- getSymbols(tkr, src = "yahoo",
                           to   = data_end,
                           auto.assign = FALSE) |> na.omit()
 
-FullDataXTS   <- log(FullDataXTS)
-
 halfway       <- mean(as.Date(c(data_start, data_end)))
 training_end  <- paste0("/", halfway)
 testing_start <- paste0(as.Date(halfway) + 1, "/")
-
 ########## Change '-' in ticker names to '.' because R has a delightful habit of
 ########## unexpectedly sanitising the column names so they are compatible as symbols
 tkr <- make.names(tkr)
 colnames(FullDataXTS) <- make.names(colnames(FullDataXTS), unique = TRUE)
 
-TrainingData <- FullDataXTS[training_end]
-TestingData  <- FullDataXTS[testing_start]
-
-### Forecasting Engine #################
-# input = Price ts
-# output = Forecasts, up or down, probability confidence
-
 make_field <- \(f) paste0(tkr, ".", f)
-#TODO this should use make_field
-volume <- paste0(tkr, ".Volume")
-open   <- paste0(tkr, ".Open")
-high   <- paste0(tkr, ".High")
-low    <- paste0(tkr, ".Low")
-close  <- paste0(tkr, ".Close")
+volume <- make_field("Volume")
+open   <- make_field("Open")
+high   <- make_field("High")
+low    <- make_field("Low")
+close  <- make_field("Close")
 
 price_aspects <- c(open, high, low, close)
 price_rules <- lapply(price_aspects, as.symbol)
+# Sometimes vol is 0 in commodity indexes, this gets converted into -Inf which
+# will poison the entire result. Get rid of it here
+vol_bad <- !is.finite(FullDataXTS[, volume])
+FullDataXTS[vol_bad, volume] <- NA
+FullDataXTS[, volume] <- zoo::na.approx(FullDataXTS[, volume], na.rm = FALSE)
+FullDataXTS[, volume] <- zoo::na.locf(FullDataXTS[, volume], na.rm = FALSE)
+FullDataXTS[, volume] <- zoo::na.locf(FullDataXTS[, volume], fromLast = TRUE)
 
-# These functions wrap functions that can return NA and rturn 0 instead. Using
-# Inf doesn't work since it makes the trig functions return NA.
-p_log <- \(num) {
-  if (any(num < 0, na.rm = TRUE)) {
-    Inf
-  } else {
-    log(num)
-  }
-}
+TrainingData <- FullDataXTS[training_end]
+TestingData  <- FullDataXTS[testing_start]
+```
 
-p_sin <- \(num) {
-  if (any(!is.finite(num))) {
-    Inf
-  } else {
-    sin(num)
-  }
-}
-
-p_cos <- \(num) {
-  if (any(!is.finite(num))) {
-    Inf
-  } else {
-    cos(num)
-  }
-}
-
+```{r indicators}
 ############################# Technical Analysis Indicators ####################
-
 # To guard against inappropriate parameters or meaningless values such as NULL
 # poisoning the GP process, indicators return either a valid series or an empty
 # one that can be handled by other (particularly the comp) function.
+mk_guarded_indic <- \(f) {
+  function(data) {
+    tryCatch(f(data), error = \(e) return(data[0]))
+  }
+}
 
+clv <- mk_guarded_indic(TTR::CLV)
 # Guard for indicators that take a price and 1 extra param
 mk_guarded_indic_1 <- \(f) {
   function(data, n) {
@@ -103,38 +231,34 @@ mk_guarded_indic_1 <- \(f) {
 sma   <- mk_guarded_indic_1(TTR::SMA)
 ema   <- mk_guarded_indic_1(TTR::EMA)
 hma   <- mk_guarded_indic_1(TTR::HMA)
-obv   <- mk_guarded_indic_1(TTR::OBV)
 vhf   <- mk_guarded_indic_1(TTR::VHF)
-
+cmo   <- mk_guarded_indic_1(TTR::CMO)
+zlema <- mk_guarded_indic_1(TTR::ZLEMA)
+```
+```{r guard_2, echo=FALSE}
 mk_guarded_indic_2 <- \(f) {
   function(data, a, b) {
     tryCatch(f(data, a, b), error = \(e) { return(data[0])}
     )
   }
 }
-
-# MFI ignored since it requires a merged HLC series
-# SNR ignored for same reason
-# and:
-# EMV, 
-# SAR ignored because it requires a merged HL series
+```
+```{r indic_2}
 evwma  <- mk_guarded_indic_2(TTR::EVWMA)
 vwap   <- mk_guarded_indic_2(TTR::VWAP)
-
-
-# Although ZLEMA has a third ratio parameter, it is overridden by its second, 
-# the lag which is what will be focussed on
-zlema <- mk_guarded_indic_1(TTR::ZLEMA)
-
+cmf    <- mk_guarded_indic_2(TTR::CMF)
+rsi    <- mk_guarded_indic_2(TTR::RSI)
+```
+```{r guard_3, echo=FALSE}
 mk_guarded_indic_3 <- \(f) {
   function(data, a, b, c) {
     tryCatch(f(data, a, b, c), error = \(e) return(data[0]))
   }
 }
-
+```
+```{r indic_3}
 alma <- mk_guarded_indic_3(TTR::ALMA)
 dema  <- mk_guarded_indic_3(TTR::DEMA)
-
 # MACD requires its own wrapper since it returns multiple columns
 macd <- function(data, a, b, c, d) {
   tryCatch({
@@ -142,12 +266,17 @@ macd <- function(data, a, b, c, d) {
   }, error = function(e) data[0])
 }
 
-g_tail <- \(data, n) {
-  if (n >= NROW(data)) {
-    data[0]
-  }
-  tail(data, n)
+```
+```{r comp, echo=FALSE}
+# Grouped aspects for various indicators that require them
+make_high_low_close <- \(high, low, close) {
+  as.call(c(
+    as.name("merge"),
+    lapply(c(high, low, close), as.name)
+  ))
 }
+
+high_low_close <- make_high_low_close(high, low, close)
 
 comp <- function(aspect, strategy) {
   tryCatch({
@@ -170,148 +299,123 @@ comp <- function(aspect, strategy) {
     signal
     }
   }, error = \(e) {
-    browser()
     return(aspect[0])
   }
   )
 }
 ```
 
-
-
 ```{r indicator_rules}
-indicator_rules <- list(expr        = grule(compare(aspect, signal),
-                                            compare(const,  signal),
-                                            compare(signal, signal)
-                                            ),
-                        compare     = grule(comp),
-                        signal      = grule(op(transform, indic),
-                                            op(transform, aspect),
-                                            indic
-                                            ),
-                        op          = grule('+', '-', '*', '/'),
-                        indic       = grule(sma(aspect, lag),
-                                            ema(aspect, lag),
-                                            hma(aspect, lag),
-                                            vhf(aspect, lag),
-                                            obv(aspect, vol),
-                                            zlema(aspect, lag),
-                                            evwma(aspect, vol, lag),
-                                            vwap(aspect, vol, lag),
-                                            dema(aspect, lag, ratio, bool),
-                                            macd(aspect, lag, lag, lag, maType)
-                                            ),
-                        aspect      = do.call(grule, price_rules),
-                        ratio       = gvrule(seq(0.1, 1.0, by = 0.1)),
-                        # These are commonly used window sizes in technical analysis
-                        lag         = gvrule(c(2L, 3L, 5L, 10L, 14L, 20L, 50L, 100L, 200L)),
-                        const       = gvrule(1:50),
-                        bool        = grule(TRUE, FALSE),
-                        vol         = do.call(grule, list(as.symbol(volume))),
-                        # Can't use WMA here
-                        maType      = grule("EMA", "SMA", "DEMA", "ZLEMA", "HMA")
-                      )
+
+make_indicator_rules <- \(price_rules, volume, high_low_close) {
+  list(expr        = grule(compare(aspect, signal),
+                           compare(const, signal ), 
+                           compare(signal, signal ) 
+                           ),
+       compare     = grule(comp),
+       signal      = grule(op(signal, indic),
+                           op(signal, aspect),
+                           indic
+                           ),
+       op          = grule('+', '-', '*', '/'),
+       indic       = grule(sma(aspect, lag), # Trend
+                           ema(aspect, lag), # Trend
+                           hma(aspect, lag), # Trend
+                           vhf(aspect, lag), # Trend
+                           dema(aspect, lag, ratio, bool), # Trend
+                           zlema(aspect, lag), # Trend
+                           evwma(aspect, vol, lag), # Trend
+                           vwap(aspect, vol, lag), #Volume
+                           cmf(hlc, vol, lag), #Volume
+                           cmo(aspect, lag), #Momentum
+                           rsi(aspect, lag, maType),#Momentum
+                           macd(aspect, lag, lag, lag, maType),
+                           clv(hlc) # Hard to categorise; "Pressure"
+                           ),
+       aspect      = do.call(grule, price_rules),
+       ratio       = gvrule(seq(0.1, 1.0, by = 0.1)),
+       # These are commonly used window sizes in technical analysis
+       lag         = gvrule(c(2L, 3L, 5L, 10L, 14L, 20L, 50L, 100L, 200L)),
+       const       = gvrule(1:50),
+       bool        = grule(TRUE, FALSE),
+       vol         = do.call(grule, list(as.symbol(volume))),
+       hlc         = do.call(grule, list(high_low_close)),
+       # Can't use WMA here
+       maType      = grule("EMA", "SMA", "DEMA", "ZLEMA", "HMA")
+       )
+}
+
+indicator_rules <- make_indicator_rules(price_rules, volume, high_low_close)
 ```
 
-The grammar is designed to create functions that produce a signal. In order to
-make the signal meaningful it is given context by comparing it to either an 
-aspect of the price series (the High, Low, or Close), to a constant, or to another
-signal. 
-
-The comparison function converts the signal into a time series of 1 or -1
-if the signal is above or below the corresponding value in the left hand of the
-comparison. 
+The grammar is designed to create functions that produce a signal, given
+context by comparison with either an aspect of the price series (the Open, High,
+Low, or Close), a constant, or another signal. The signal is then converted into
+a time series of 1 or -1 if it is above or below the corresponding value in the
+left hand of the comparison.
 
 ```{r echo=FALSE}
 forecasting_grammar <- CreateGrammar(indicator_rules)
+```
 
-g_roll <- \(data, n, f) zoo::rollapply(data, n, f)
+The cost function assumes that the account will hold a long position whilst the
+signal is 1, a short position if the signal is -1, and none if it is 0. It seeks to
+select strategies that outperform buy-and-hold. However, if unconstrained it has
+a tendency to select very low frequency trading strategies that randomly select
+advantageous entry points in the training set, but fail to trade in the test
+set. Consequently, a threshold number of trades is set as a daily rate. In order
+to make the simulation more realistic and to penalise over-trading, the cost
+function adds a charge for each trade of 0.1%. This is to reflect the fact that
+costs are very likely to be incurred either as a topline charge or through the
+spread, but are still usually very small. The final addition is a cost for
+inaccuracy.
 
-# indicator_components <- list(expr       = grule(compare(left_side, right_side)),
-#                              compare    = grule(comp),
-#                              left_side  = grule(aspect, series),
-#                              right_side = grule(series),
-#                              scalar     = grule(op(scalar, scalar), 
-#                                                 reducer(series),
-#                                                 const
-#                                                 ),
-#                              reducer    = grule(sum, mean, sd),
-#                              series     = grule(aspect,
-#                                                 g_roll(aspect, const, reducer),
-#                                                 op(series, series),
-#                                                 ema(series, const)
-#                                                 ),
-#                              op         = grule('+', '-', '*', '/'),
-#                              aspect     = do.call(grule, price_rules),
-#                              const      = gvrule(2:200)
-#                              )
-
-# forecasting_grammar <- CreateGrammar(indicator_components)
-
-######################## Fitness Function and GP
-
+```{r cost_function}
 # Create an environment with all the variables up to this point that can be 
 # accessed using column names as symbols
 env <- list2env(as.list(TrainingData), parent = .GlobalEnv)
+target_trade_rate <- 1/21
 
-# Assume
-```
-
-The cost function assumes that the signal will hold a long position whilst the
-signal is 1, and a short if the signal is -1, and none if it is 0. The cost
-function seeks to outperform a buy and hold strategy for the underlying asset,
-expressed simply as the return. In order to make the simulation more realistic
-and to penalise over-trading, the cost function adds a charge for each trade of
-0.1%. This is to reflect the fact that costs are very likely to be incurred either
-as a topline charge or through the spread, but are still usually very small. The 
-final addition is a cost for inaccuracy. 
-
-```{r fitness_function}
-assess_fit <- \(result, data) {
+assess_strat <- \(result, data) {
   stopifnot(is.xts(result) && is.xts(data))
   stopifnot(NROW(result) == NROW(data))
-  idx             <- index(result)
   next_day        <- stats::lag(data, -1)  |> na.omit()
+  idx             <- index(result)
   next_day        <- next_day[idx] # Force the training data to align with result
-  actual_returns  <- diff(next_day)       |> na.omit()
+  actual_returns  <- diff(log(next_day))  |> na.omit()
   actual_trend    <- sign(actual_returns)
-  forecast        <- result # Just in case we need to preprocess result in future versions
-  misses          <- forecast != actual_trend
+  forecast        <- sign(result) # Just in case we need to preprocess result in future versions
+  misses          <- sum(forecast != actual_trend)
   n_trades        <- sum(diff(forecast) != 0, na.rm = TRUE)
+  # Remove low-trading strategies
+  if (n_trades <= (NROW(data) * target_trade_rate)) return(Inf)
   buy_and_hold    <- sum(actual_returns)
-  # Calculating strat return requires properly aligning the datasets on their
-  # date. Since next_day is lagged, forecast should be longer. We therefore 
-  # want to keep forecast's index and merge onto that. 
-  # Using actual_trend * next_day causes xts to automatically align the dates,
-  # leading to look-ahead bias
-  aligned         <- merge(forecast, actual_returns, join = "inner")
-  return_path     <- coredata(aligned[,1]) * coredata(aligned[,2])
-  strat_return    <- return_path |> sum()
-  l <- length(result)
-  fee <- 0.001
-  cost <- (buy_and_hold - strat_return) + n_trades * fee
-  if (is.na(cost)) {
+  forecast        <- forecast[index(actual_returns)]
+  return_path     <- as.numeric(forecast) * as.numeric(actual_returns)
+  strat_return    <- sum(return_path, na.rm = TRUE)
+  trade_rate      <- n_trades / length(result)
+  trade_penalty   <- ((trade_rate - target_trade_rate) / target_trade_rate)^2
+  fee             <- 0.01
+  cost            <- (buy_and_hold - strat_return) + n_trades * fee + trade_penalty + misses/NROW(actual_trend)
+  if (!is.finite(cost) || is.na(cost)) {
     Inf
   } else {
   cost
   }
 }
 ```
-
  
 ```{r echo=FALSE}
 # Lag target by 1. Since the signal will be generated on close, it cannot be
 # used until the next day.
 training_close  <- TrainingData[, close]
-
 # Written by ChatGPT - the list of corner cases was beyond my experience
 validate_result <- function(result, training) {
   if (length(result) == 0L) return(FALSE) # Complement of guard in EMA
   if (is.null(result)) return(FALSE)
   if (!xts::is.xts(result)) return(FALSE)
-  if (NROW(result) != NROW(training)) return(FALSE)
-  if (NCOL(result) != 1) return(FALSE)
-  if (NROW(result) == 0) return(FALSE)
+  if (length(result) == 0L || NROW(result) != NROW(training) 
+      || NCOL(result) != 1) return(FALSE)
   if (all(is.na(result))) return(FALSE)
   if (any(is.infinite(as.numeric(result)))) return(FALSE)
   s <- sign(as.numeric(result))
@@ -326,57 +430,106 @@ indicator_fit <- \(expr) {
     return(Inf)
   }
   else {
-    # if (sd(result, na.rm = TRUE) < 1e-6) return(Inf) # Don't allow very stable results through - they will just copy the asset
-    cost <- assess_fit(result, training_close)
+    cost <- assess_strat(result, training_close)
     if(length(cost) > 1) browser()
     cost
   }
 }
+
+monitor <- data.frame(
+  iteration     = integer(),
+  best_cost     = numeric(),
+  finite_mean   = numeric(),
+  unique_costs  = integer()
+)
+
+monitor_func <- function(result) {
+  iteration     <- result$population$currentIteration
+  best_cost     <- result$best$cost
+  evals         <- result$population$evaluations
+  finite_evals  <- evals[is.finite(evals)]
+  finite_mean   <- if (length(finite_evals) > 0) {
+    mean(finite_evals)
+  }
+  uniques       <- length(unique(evals))
+  monitor       <<- rbind(
+                    monitor,
+                    data.frame(
+                               iteration = iteration,
+                               best_cost = best_cost,
+                               finite_mean = finite_mean,
+                               unique_costs = uniques)
+  )
+}
 ```
 
-Finally, the evolution function is called with an unlimited termination cost. 
-If the `assess_fit` returns a value greater than the termination cost, then 
-the GP halts at that point. But since assess_fit is dominated by a strategies 
-relative outperformance over buy and hold, we do not wish to cap this value. Hence, 
-it is set to `-Inf`.
+If `assess_strat` returns a value greater than the termination cost, 
+the GP halts at that point. But since `assess_strat` reflects a strategy's 
+relative out performance over buy and hold, we do not wish to cap this value. 
+Consequently, the termination cost is unlimited.
 
-```{r evolution_function}
-# Run
-ge <- GrammaticalEvolution(forecasting_grammar,
-                           indicator_fit,
-                           terminationCost = -Inf,
-                           verbose = FALSE,
-                           iterations = 1000,
-                           max.depth = 10)
+```{r evolution_function, cache=TRUE}
+max_iters <- 1000
+main_ga_path <- file.path(rds_dir, "brk_b_main_ga.rds")
+main_ga <- load_or_run_rds(main_ga_path, function() {
+  monitor <<- monitor[0, ]
+  ge <- GrammaticalEvolution(forecasting_grammar,
+                             indicator_fit,
+                             terminationCost = -Inf,
+                             monitorFunc = monitor_func,
+                             iterations = max_iters,
+                             max.depth = 10)
+  list(ge = ge, monitor = monitor)
+})
+ge <- main_ga$ge
+monitor <- main_ga$monitor
+plot(
+  monitor$iteration,
+  monitor$best_cost,
+  type = "l",
+  xlab = "Iteration",
+  ylab = "Cost",
+  main = "Best cost by iteration"
+)
+
+lines(
+  monitor$iteration,
+  monitor$finite_mean,
+  col = "red"
+)
+
+legend(
+  "topright",
+  legend = c("Best cost", "Mean finite cost"),
+  col = c("black", "red"),
+  lty = 1
+)
+
 ```
 
+The above figure shows that the evolution progressed in steps, as a new
+elite function was discovered and remained in top position for extended periods
+whilst new generations failed to exceed its performance.
 
+One might suspect that the GA is static during these periods, but the red line
+shows that the mean cost per generation fluctuates significantly, indicating
+that the GA is at work.
 
-```{r evaluation }
-# Evaluation
-ForecastingModel  <- ge$best$expressions[1]
-result            <- with(TestingData, eval(ForecastingModel))
-error             <- assess_fit(result, TestingData[, close])
+# Results
 
-test_set      <- stats::lag(TestingData[, close], -1) |> diff() |> na.omit()
-common_dates  <- intersect(index(result), index(test_set))
-result        <- result[common_dates]
-test_set      <- test_set[common_dates]
-signal        <- (result * test_set) |> cumsum()
+The strategy's performance was assessed by comparison to a buy and hold
+strategy and a permutation test to assess how well the strategy captured
+structurally important features of the asset's behaviour.
 
-plot(signal)
-lines(cumsum(test_set), col = 2)
-print(ForecastingModel)
+The permutation test creates 1000 new return paths by shuffling the daily
+returns of the asset. The result is a set of random return paths within the
+scope of the original asset. If the strategy's performance on the original asset
+is at the extreme of the random paths, then it can be considered to be
+a significant result. 
 
-long_only_signal <- cumsum(test_set)
-model_signal <- cumsum(sign(result) * test_set)
-no_shorts_signal <- cumsum(ifelse(sign(result) > 0, 1, 0) * test_set)
+## Training Data
 
-
-################ Permutation Test 
-
-sig <- sign(zoo::na.fill(stats::lag(result, 1), 0))
-
+```{r train_evaluation}
 shuffle <- \(data) { 
   xts::xts(
            sample(as.numeric(data)),
@@ -384,26 +537,400 @@ shuffle <- \(data) {
   )
 }
 
-actual_pnl    <- sig * test_set
-shuffled_data <- numeric(0)
+e_to_s <- \(ex) paste(deparse(ex), collapse = " ")
+
+forecasting_model  <- ge$best$expressions[1]
+train_signal  <- with(TrainingData, eval(forecasting_model))
+train_close   <- TrainingData[, close]
+next_day      <- stats::lag(train_close, -1) |> log() |> diff() |> na.omit()
+train_return  <- cumsum(train_signal * next_day)
 
 max_test <- 1000
 
-for (i in 1:max_test) {
-  shuffled_pnl <- sum(sig * shuffle(test_set))
-  shuffled_data <- c(shuffled_data, shuffled_pnl)
-}
+shuffle_train <- replicate(max_test, sum(train_signal * shuffle(next_day)))
+shuffle_mean <- mean(shuffle_train)
+shuffle_sd   <- sd(shuffle_train)
+prob_ret     <- pnorm(shuffle_mean, shuffle_sd, lower.tail = FALSE)
+```
+The GA optimised to this model: `r e_to_s(forecasting_model)`
 
-shuffle_mean  <- mean(shuffled_data)
-shuffle_sd    <- sd(shuffled_data)
-actual_ret    <- sum(actual_pnl)
+
+```{r plot_train_return, echo=FALSE}
+train_plot <- merge(train_return, cumsum(next_day), join = "inner")
+plot(index(train_plot), as.numeric(train_plot[, 1]),
+     type = "l", col = "black",
+     ylim = range(as.numeric(train_plot), na.rm = TRUE),
+     xlab = "Date", ylab = "Cumulative return",
+     main = "Training return vs buy-and-hold")
+lines(index(train_plot), as.numeric(train_plot[, 2]), col = 2)
+legend("topleft", legend = c("Strategy", "Buy-and-hold"),
+       col = c("black", 2), lty = 1, bty = "n")
+```
+
+```{r plot_train_shuffle, echo=FALSE}
+hist(shuffle_train, prob = TRUE)
+lines(density(shuffle_train))
+abline(v = prob_ret, col = 2)
+```
+
+### Test Data
+Applying the same technique to the test period results gave the following:
+
+```{r test_evaluation, echo=FALSE}
+
+# Test Evaluation
+test_signal        <- with(TestingData, eval(forecasting_model))
+
+test_close    <- TestingData[, close]
+test_set      <- stats::lag(test_close, -1) |> log() |> diff() |> na.omit()
+test_ret      <- (test_signal * test_set) 
+
+shuffle_test  <- replicate(max_test, sum(train_signal * shuffle(next_day)))
+
+shuffle_mean  <- mean(shuffle_test)
+shuffle_sd    <- sd(shuffle_test)
+actual_ret    <- sum(test_ret)
 
 p_value <- pnorm(actual_ret, shuffle_mean, shuffle_sd, lower.tail = FALSE)
-print(p_value)
+```
 
-plot(cumsum(actual_pnl), col = "black")
-lines(cumsum(shuffled_pnl), col = "blue")
-lines(cumsum(test_set), col = "red")
+```{r plot_test_return, echo=FALSE}
+test_plot <- merge(cumsum(test_ret), cumsum(test_set), join = "inner")
+plot(index(test_plot), as.numeric(test_plot[, 1]),
+     type = "l", col = "black",
+     ylim = range(as.numeric(test_plot), na.rm = TRUE),
+     xlab = "Date", ylab = "Cumulative return",
+     main = "BR-K Test return vs buy-and-hold")
+lines(index(test_plot), as.numeric(test_plot[, 2]), col = 2)
+legend("topleft", legend = c("Strategy", "Buy-and-hold"),
+       col = c("black", 2), lty = 1, bty = "n")
+```
 
-cat("Model ", str(ForecastingModel))
+```{r plot_test_shuffle, echo=FALSE}
+hist(shuffle_test, prob = TRUE)
+lines(density(shuffle_test))
+abline(v = actual_ret, col = 2)
+```
+The approach was also tested against other assets, showing differing performance
+in each. A sample of those tested are as follows:
+
+### Apple
+```{r AAPL, echo=FALSE}
+
+tkr <- "AAPL"
+# Download into a named list (preserves order)
+FullDataXTS <- getSymbols(tkr, src = "yahoo",
+                          from = data_start,
+                          to   = data_end,
+                          auto.assign = FALSE) |> na.omit()
+
+halfway       <- mean(as.Date(c(data_start, data_end)))
+training_end  <- paste0("/", halfway)
+testing_start <- paste0(as.Date(halfway) + 1, "/")
+
+########## Change '-' in ticker names to '.' because R has a delightful habit of
+########## unexpectedly sanitising the column names so they are compatible as symbols
+tkr <- make.names(tkr)
+colnames(FullDataXTS) <- make.names(colnames(FullDataXTS), unique = TRUE)
+
+volume <- make_field("Volume")
+open   <- make_field("Open")
+high   <- make_field("High")
+low    <- make_field("Low")
+close  <- make_field("Close")
+
+price_aspects <- c(open, high, low, close)
+price_rules <- lapply(price_aspects, as.symbol)
+high_low_close <- make_high_low_close(high, low, close)
+
+# Sometimes vol is 0 in commodity indexes, this gets converted into -Inf which
+# will poison the entire result. Get rid of it here
+vol_bad <- !is.finite(FullDataXTS[, volume])
+FullDataXTS[vol_bad, volume] <- NA
+FullDataXTS[, volume] <- zoo::na.approx(FullDataXTS[, volume], na.rm = FALSE)
+FullDataXTS[, volume] <- zoo::na.locf(FullDataXTS[, volume], na.rm = FALSE)
+FullDataXTS[, volume] <- zoo::na.locf(FullDataXTS[, volume], fromLast = TRUE)
+
+TrainingData <- FullDataXTS[training_end]
+TestingData  <- FullDataXTS[testing_start]
+
+indicator_rules <- make_indicator_rules(price_rules, volume, high_low_close)
+forecasting_grammar <- CreateGrammar(indicator_rules)
+training_close <- TrainingData[, close]
+
+# Create an environment with all the variables up to this point that can be 
+# accessed using column names as symbols
+env <- list2env(as.list(TrainingData), parent = .GlobalEnv)
+```
+
+Model: `r e_to_s(forecasting_model)`
+
+```{r apple_train, echo=FALSE, cache=TRUE}
+apple_ga_path <- file.path(rds_dir, "aapl_ga.rds")
+ge <- load_or_run_rds(apple_ga_path, function() {
+  monitor <<- monitor[0, ]
+  GrammaticalEvolution(forecasting_grammar,
+                       indicator_fit,
+                       terminationCost = -Inf,
+                       monitorFunc = monitor_func,
+                       iterations = max_iters,
+                       max.depth = 10)
+})
+```
+```{r apple_stats, echo=FALSE}
+forecasting_model  <- ge$best$expressions[1]
+train_signal       <- with(TrainingData, eval(forecasting_model))
+
+train_close   <- TrainingData[, close]
+next_day      <- stats::lag(train_close, -1) |> log() |> diff() |> na.omit()
+train_return  <- cumsum(train_signal * next_day)
+
+shuffle_train <- replicate(max_test, sum(train_signal * shuffle(next_day)))
+shuffle_mean <- mean(shuffle_train)
+shuffle_sd   <- sd(shuffle_train)
+prob_ret     <- pnorm(shuffle_mean, shuffle_sd, lower.tail = FALSE)
+
+# Test Evaluation
+test_signal        <- with(TestingData, eval(forecasting_model))
+
+test_close    <- TestingData[, close]
+test_set      <- stats::lag(test_close, -1) |> log() |> diff() |> na.omit()
+test_ret      <- (test_signal * test_set)
+
+shuffle_test  <- replicate(max_test, sum(train_signal * shuffle(next_day)))
+
+shuffle_mean  <- mean(shuffle_test)
+shuffle_sd    <- sd(shuffle_test)
+actual_ret    <- sum(test_ret)
+```
+```{r aapl_plot_test_return, echo=FALSE}
+test_plot <- merge(cumsum(test_ret), cumsum(test_set), join = "inner")
+plot(index(test_plot), as.numeric(test_plot[, 1]),
+     type = "l", col = "black",
+     ylim = range(as.numeric(test_plot), na.rm = TRUE),
+     xlab = "Date", ylab = "Cumulative return",
+     main = "Apple Test vs buy-and-hold")
+lines(index(test_plot), as.numeric(test_plot[, 2]), col = 2)
+legend("topleft", legend = c("Strategy", "Buy-and-hold"),
+       col = c("black", 2), lty = 1, bty = "n")
+
+hist(shuffle_test, prob = TRUE)
+lines(density(shuffle_test))
+abline(v = actual_ret, col = 2)
+```
+
+### Brent Crude
+
+```{r Brent, echo=FALSE, warning=FALSE}
+
+tkr <- "BZ=F"
+
+# Download into a named list (preserves order)
+FullDataXTS <- getSymbols(tkr, src = "yahoo",
+                          from = data_start,
+                          to   = data_end,
+                          auto.assign = FALSE) |> na.omit()
+
+halfway       <- mean(as.Date(c(data_start, data_end)))
+training_end  <- paste0("/", halfway)
+testing_start <- paste0(as.Date(halfway) + 1, "/")
+
+########## Change '-' in ticker names to '.' because R has a delightful habit of
+########## unexpectedly sanitising the column names so they are compatible as symbols
+tkr <- make.names(tkr)
+colnames(FullDataXTS) <- make.names(colnames(FullDataXTS), unique = TRUE)
+
+volume <- make_field("Volume")
+open   <- make_field("Open")
+high   <- make_field("High")
+low    <- make_field("Low")
+close  <- make_field("Close")
+
+price_aspects <- c(open, high, low, close)
+price_rules <- lapply(price_aspects, as.symbol)
+high_low_close <- make_high_low_close(high, low, close)
+
+# Sometimes vol is 0 in commodity indexes, this gets converted into -Inf which
+# will poison the entire result. Get rid of it here
+vol_bad <- !is.finite(FullDataXTS[, volume])
+FullDataXTS[vol_bad, volume] <- NA
+FullDataXTS[, volume] <- zoo::na.approx(FullDataXTS[, volume], na.rm = FALSE)
+FullDataXTS[, volume] <- zoo::na.locf(FullDataXTS[, volume], na.rm = FALSE)
+FullDataXTS[, volume] <- zoo::na.locf(FullDataXTS[, volume], fromLast = TRUE)
+
+TrainingData <- FullDataXTS[training_end]
+TestingData  <- FullDataXTS[testing_start]
+
+indicator_rules <- make_indicator_rules(price_rules, volume, high_low_close)
+forecasting_grammar <- CreateGrammar(indicator_rules)
+training_close <- TrainingData[, close]
+# Create an environment with all the variables up to this point that can be 
+# accessed using column names as symbols
+env <- list2env(as.list(TrainingData), parent = .GlobalEnv)
+```
+```{r brent_train, echo=FALSE, cache=TRUE}
+brent_ga_path <- file.path(rds_dir, "brent_ga.rds")
+ge <- load_or_run_rds(brent_ga_path, function() {
+  monitor <<- monitor[0, ]
+  GrammaticalEvolution(forecasting_grammar,
+                       indicator_fit,
+                       terminationCost = -Inf,
+                       monitorFunc = monitor_func,
+                       iterations = max_iters,
+                       max.depth = 10)
+})
+```
+```{r brent_stats, echo=FALSE}
+forecasting_model  <- ge$best$expressions[1]
+train_signal       <- with(TrainingData, eval(forecasting_model))
+
+train_close   <- TrainingData[, close]
+next_day      <- stats::lag(train_close, -1) |> log() |> diff() |> na.omit()
+train_return  <- cumsum(train_signal * next_day)
+
+shuffle_train <- replicate(max_test, sum(train_signal * shuffle(next_day)))
+shuffle_mean <- mean(shuffle_train)
+shuffle_sd   <- sd(shuffle_train)
+prob_ret     <- pnorm(shuffle_mean, shuffle_sd, lower.tail = FALSE)
+
+# Test Evaluation
+test_signal        <- with(TestingData, eval(forecasting_model))
+
+test_close    <- TestingData[, close]
+test_set      <- stats::lag(test_close, -1) |> log() |> diff() |> na.omit()
+test_ret      <- (test_signal * test_set)
+
+shuffle_test  <- replicate(max_test, sum(train_signal * shuffle(next_day)))
+
+shuffle_mean  <- mean(shuffle_test)
+shuffle_sd    <- sd(shuffle_test)
+actual_ret    <- sum(test_ret)
+```
+
+Model: `r e_to_s(forecasting_model)`
+
+```{r brent_plot_test_return, echo=FALSE}
+test_plot <- merge(cumsum(test_ret), cumsum(test_set), join = "inner")
+plot(index(test_plot), as.numeric(test_plot[, 1]),
+     type = "l", col = "black",
+     ylim = range(as.numeric(test_plot), na.rm = TRUE),
+     xlab = "Date", ylab = "Cumulative return",
+     main = "Brent-Crude Test return vs buy-and-hold")
+lines(index(test_plot), as.numeric(test_plot[, 2]), col = 2)
+legend("topleft", legend = c("Strategy", "Buy-and-hold"),
+       col = c("black", 2), lty = 1, bty = "n")
+```
+```{r brent_plot_test_shuffle, echo=FALSE}
+hist(shuffle_test, prob = TRUE)
+lines(density(shuffle_test))
+abline(v = actual_ret, col = 2)
+
+```
+## Conclusion
+The results are mixed. For some assets, our approach seems to work well, but in
+others the results are less impressive. Whilst developing this report, it was
+noted that there was a great deal of variation between different runs of the GA.
+On some occasions a very improbable, highly profitable strategy emerged. In some
+others, it produced a loser. The implication is that the GA has not fully
+explored the problem space, which in turn suggests that a significantly higher
+number of iterations may be required, or a deeper grammar, or a higher
+`max.depth` setting, however this was not feasible with the current hardware and
+time constraints.
+
+Nonetheless, luck alone doesn't explain the performance of those strategies that
+did work well. For example, the following highly successful, low probability 
+strategy was found after 20,000 iterations (left overnight) on BZ=F:
+
+```
+dema(BZ.F.Open, 14L, 0.1, FALSE) + BZ.F.High - hma(BZ.F.Close, 3L)] > 
+zlema(BZ.F.Close,  100L)
+```
+
+Its behaviour is entirely deterministic; why should its performance be random?
+In summary, this report indicates that technical indicators may have more
+predictive power than the Efficient Market Hypothesis would allow, but such an
+assertion requires more research on a larger universe of assets, perhaps
+
+# Self-Adjusting Algorithm
+
+The following code was developed to simulate a trading system as part of the cost 
+function, but was too slow to use in production. However, it could be extended to 
+incrementally update the GA as it meets new data. 
+
+```{r eval=FALSE}
+strategy <- initial_strategy
+
+closed_trades <- list()
+# Any strategy will require more than 1 data point, so taking the first one at
+# this point isn't going to change anything but make accumulating the historical
+# data with xts.rbind a lot easier
+past_data     <- data_set[1]
+# Construct a trade object. The close_price should never be empty on a 
+# closed trade; close_price == NULL represents a program failure
+mk_trade <- \(direction, open_price, fee) {
+  list(direction = direction,
+       open = open_price,
+       close_price = NULL,
+       fee = fee
+  )
+}
+
+open_position <- mk_trade(direction = 0, open_price = 0, fee = 0)
+
+for (i in 2:NROW(data_set)) {
+  ###########################UPDATE GA MODEL###################################
+  if ( modulus(i, six_months) == 0) {
+    new_data  <- past_data[six_months_ago:NROW(past_data)]
+    ge2 <- GrammaticalEvolution(forecasting_grammar, 
+                                indicator_fit, 
+                                suggestions = ge$best$genome # etc...)
+    strategy <- ge2$best$expresssions[1]
+  }
+  ############################################################################
+  # Any real-world strategy must generate a signal using yesterday's data
+  model <- tryCatch(
+          with(past_data, eval(strategy)),
+           error = function(e) {
+             if (grepl("outside valid range", e$message)) {
+               NULL
+             } else { # have a fit
+               stop(e)
+             }
+           }
+  )
+  # Signals on early data are likely to produce NA since the strategy will probably
+  # use moving averages. Skip these, but keep adding to past_data
+  latest_data <- data_set[i]
+  # Add today's ohlcv to the past_data series
+  past_data <-rbind.xts(past_data,latest_data)
+  # Get the last prices as a number
+  latest_close <- as.numeric(latest_data[, close])
+  latest_open  <- as.numeric(latest_data[, open])
+  # Skip nulls from the tryCatch
+  if (is.null(model)) { next } 
+  # Latest signal is the last signal in the model
+  signal <- as.numeric(last(model))
+  # Do some trading
+  current_direction <- open_position$direction
+  latest_close <- as.numeric(latest_data[, close])
+  if(current_direction != signal){
+    #Close the current position
+    open_position$close_price <- latest_close
+    closed_trades <- c(closed_trades, list(open_position))
+    # Open a new position, assuming a trading fee of 2% per trade. 
+    assumed_fee <- 0.02
+    open_position <- mk_trade(direction   = signal,
+                              open_price  = latest_close,
+                              fee         = assumed_fee
+    )
+  } 
+  # If we've reached the end of the dataset, just close the final trade
+  if(i == NROW(data_set)) {
+    open_position$close_price <- latest_close
+    closed_trades <- c(closed_trades, list(open_position))
+  }
+}
+trade_profit <- \(trade) (trade$direction * (trade$close_price - trade$open) - trade$fee)
+total_profit <- lapply(closed_trades, trade_profit) |> as.numeric() |> sum()
+print(total_profit)
 ```

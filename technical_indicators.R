@@ -10,15 +10,13 @@ library(BatchGetSymbols)
 data_start <- "2000-01-01"
 data_end   <- "2026-01-01"
 
-tkr <- "BZ=F"
+tkr <- "AAPL"
 
 # Download into a named list (preserves order)
 FullDataXTS <- getSymbols(tkr, src = "yahoo",
                           from = data_start,
                           to   = data_end,
                           auto.assign = FALSE) |> na.omit()
-
-FullDataXTS   <- log(FullDataXTS)
 
 halfway       <- mean(as.Date(c(data_start, data_end)))
 training_end  <- paste0("/", halfway)
@@ -29,25 +27,30 @@ testing_start <- paste0(as.Date(halfway) + 1, "/")
 tkr <- make.names(tkr)
 colnames(FullDataXTS) <- make.names(colnames(FullDataXTS), unique = TRUE)
 
-TrainingData <- FullDataXTS[training_end]
-TestingData  <- FullDataXTS[testing_start]
-
 ### Forecasting Engine #################
-# input = Price ts
-# output = Forecasts, up or down, probability confidence
 
 make_field <- \(f) paste0(tkr, ".", f)
-#TODO this should use make_field
-volume <- paste0(tkr, ".Volume")
-open   <- paste0(tkr, ".Open")
-high   <- paste0(tkr, ".High")
-low    <- paste0(tkr, ".Low")
-close  <- paste0(tkr, ".Close")
+volume <- make_field("Volume")
+open   <- make_field("Open")
+high   <- make_field("High")
+low    <- make_field("Low")
+close  <- make_field("Close")
 
 price_aspects <- c(open, high, low, close)
 price_rules <- lapply(price_aspects, as.symbol)
 
-# These functions wrap functions that can return NA and rturn 0 instead. Using
+# Sometimes vol is 0 in commodity indexes, this gets converted into -Inf which
+# will poison the entire result. Get rid of it here
+vol_bad <- !is.finite(FullDataXTS[, volume])
+FullDataXTS[vol_bad, volume] <- NA
+FullDataXTS[, volume] <- zoo::na.approx(FullDataXTS[, volume], na.rm = FALSE)
+FullDataXTS[, volume] <- zoo::na.locf(FullDataXTS[, volume], na.rm = FALSE)
+FullDataXTS[, volume] <- zoo::na.locf(FullDataXTS[, volume], fromLast = TRUE)
+
+TrainingData <- FullDataXTS[training_end]
+TestingData  <- FullDataXTS[testing_start]
+
+# These functions wrap functions that can return NA and return 0 instead. Using
 # Inf doesn't work since it makes the trig functions return NA.
 p_log <- \(num) {
   if (any(num < 0, na.rm = TRUE)) {
@@ -79,6 +82,14 @@ p_cos <- \(num) {
 # poisoning the GP process, indicators return either a valid series or an empty
 # one that can be handled by other (particularly the comp) function.
 
+mk_guarded_indic <- \(f) {
+  function(data) {
+    tryCatch(f(data), error = \(e) return(data[0]))
+  }
+}
+
+clv <- mk_guarded_indic(TTR::CLV)
+
 # Guard for indicators that take a price and 1 extra param
 mk_guarded_indic_1 <- \(f) {
   function(data, n) {
@@ -91,6 +102,7 @@ ema   <- mk_guarded_indic_1(TTR::EMA)
 hma   <- mk_guarded_indic_1(TTR::HMA)
 obv   <- mk_guarded_indic_1(TTR::OBV)
 vhf   <- mk_guarded_indic_1(TTR::VHF)
+cmo   <- mk_guarded_indic_1(TTR::CMO)
 
 mk_guarded_indic_2 <- \(f) {
   function(data, a, b) {
@@ -106,7 +118,8 @@ mk_guarded_indic_2 <- \(f) {
 # SAR ignored because it requires a merged HL series
 evwma  <- mk_guarded_indic_2(TTR::EVWMA)
 vwap   <- mk_guarded_indic_2(TTR::VWAP)
-
+cmf    <- mk_guarded_indic_2(TTR::CMF)
+rsi    <- mk_guarded_indic_2(TTR::RSI)
 
 # Although ZLEMA has a third ratio parameter, it is overridden by its second, 
 # the lag which is what will be focussed on
@@ -134,6 +147,12 @@ g_tail <- \(data, n) {
   }
   tail(data, n)
 }
+
+# Grouped aspects for various indicators that require them
+high_low_close <- as.call(c(
+                            as.name("merge"),
+                            lapply(c(high, low, close), as.name)
+                            ))
 
 comp <- function(aspect, strategy) {
   tryCatch({
@@ -172,16 +191,20 @@ indicator_rules <- list(expr        = grule(compare(aspect, signal),
                                             indic
                                             ),
                         op          = grule('+', '-', '*', '/'),
-                        indic       = grule(sma(aspect, lag),
-                                            ema(aspect, lag),
-                                            hma(aspect, lag),
-                                            vhf(aspect, lag),
-                                            obv(aspect, vol),
-                                            zlema(aspect, lag),
-                                            evwma(aspect, vol, lag),
-                                            vwap(aspect, vol, lag),
-                                            dema(aspect, lag, ratio, bool),
-                                            macd(aspect, lag, lag, lag, maType)
+                        indic       = grule(sma(aspect, lag), # Trend
+                                            ema(aspect, lag), # Trend
+                                            hma(aspect, lag), # Trend
+                                            vhf(aspect, lag), # Trend
+                                            dema(aspect, lag, ratio, bool), # Trend
+                                            zlema(aspect, lag), # Trend
+                                            evwma(aspect, vol, lag), # Trend
+                                            vwap(aspect, vol, lag), #Volume
+                                            obv(aspect, vol), # Volume
+                                            cmf(hlc, vol, lag), #Volume
+                                            cmo(aspect, lag), #Momentum
+                                            rsi(aspect, lag, maType),#Momentum
+                                            macd(aspect, lag, lag, lag, maType),
+                                            clv(hlc) # Hard to categorise; "Pressure"
                                             ),
                         aspect      = do.call(grule, price_rules),
                         ratio       = gvrule(seq(0.1, 1.0, by = 0.1)),
@@ -190,6 +213,7 @@ indicator_rules <- list(expr        = grule(compare(aspect, signal),
                         const       = gvrule(1:50),
                         bool        = grule(TRUE, FALSE),
                         vol         = do.call(grule, list(as.symbol(volume))),
+                        hlc         = do.call(grule, list(high_low_close)),
                         # Can't use WMA here
                         maType      = grule("EMA", "SMA", "DEMA", "ZLEMA", "HMA")
                       )
@@ -225,31 +249,33 @@ g_roll <- \(data, n, f) zoo::rollapply(data, n, f)
 # accessed using column names as symbols
 env <- list2env(as.list(TrainingData), parent = .GlobalEnv)
 
-# Assume
-assess_fit <- \(result, data) {
+target_trade_rate <- 1/21
+
+assess_strat <- \(result, data) {
   stopifnot(is.xts(result) && is.xts(data))
   stopifnot(NROW(result) == NROW(data))
-  idx             <- index(result)
   next_day        <- stats::lag(data, -1)  |> na.omit()
+  idx             <- index(result)
   next_day        <- next_day[idx] # Force the training data to align with result
-  actual_returns  <- diff(next_day)       |> na.omit()
+  actual_returns  <- diff(log(next_day))       |> na.omit()
   actual_trend    <- sign(actual_returns)
-  forecast        <- result # Just in case we need to preprocess result in future versions
-  misses          <- forecast != actual_trend
+  forecast        <- sign(result) # Just in case we need to preprocess result in future versions
+  misses          <- sum(forecast != actual_trend)
   n_trades        <- sum(diff(forecast) != 0, na.rm = TRUE)
+  # Remove low-trading strategies
+  if (n_trades <= (NROW(data) * target_trade_rate)) return(Inf)
   buy_and_hold    <- sum(actual_returns)
-  # Calculating strat return requires properly aligning the datasets on their
-  # date. Since next_day is lagged, forecast should be longer. We therefore 
-  # want to keep forecast's index and merge onto that. 
-  # Using actual_trend * next_day causes xts to automatically align the dates,
-  # leading to look-ahead bias
-  aligned         <- merge(forecast, actual_returns, join = "inner")
-  return_path     <- coredata(aligned[,1]) * coredata(aligned[,2])
-  strat_return    <- return_path |> sum()
-  l <- length(result)
-  fee <- 0.001
-  cost <- (buy_and_hold - strat_return) + n_trades * fee
-  if (is.na(cost)) {
+  forecast        <- forecast[index(actual_returns)]
+  return_path     <- as.numeric(forecast) * as.numeric(actual_returns)
+  strat_return    <- sum(return_path, na.rm = TRUE)
+  trade_rate      <- n_trades / length(result)
+  trade_penalty   <- ((trade_rate - target_trade_rate) / target_trade_rate)^2
+  fee             <- 0.01
+  cost            <- (buy_and_hold - strat_return) 
+                     + n_trades * fee 
+                     + trade_penalty
+                     + misses/NROW(actual_trend)
+  if (!is.finite(cost) || is.na(cost)) {
     Inf
   } else {
   cost
@@ -283,75 +309,102 @@ indicator_fit <- \(expr) {
   }
   else {
     # if (sd(result, na.rm = TRUE) < 1e-6) return(Inf) # Don't allow very stable results through - they will just copy the asset
-    cost <- assess_fit(result, training_close)
+    cost <- assess_strat(result, training_close)
     if(length(cost) > 1) browser()
     cost
   }
 }
 
+monitor <- data.frame(
+  iteration = integer(),
+  best_cost = numeric(),
+  finite_mean = numeric(),
+  unique_costs = integer()
+)
 
-# Run
+monitor_func <- function(result) {
+  iteration <- result$population$currentIteration
+  best      <- paste(deparse(result$best$expressions[1]), collapse = " ")
+  best_cost <- result$best$cost
+  evals <- result$population$evaluations
+  finite_evals <- evals[is.finite(evals)]
+  finite_mean   <- if (length(finite_evals) > 0) {
+    mean(finite_evals)
+  }
+  uniques <- length(unique(evals))
+  monitor <<- rbind(
+                    monitor,
+                    data.frame(
+                               iteration = iteration,
+                               best_cost = best_cost,
+                               finite_mean = finite_mean,
+                               unique_costs = uniques)
+  )
+}
+
+
 ge <- GrammaticalEvolution(forecasting_grammar,
                            indicator_fit,
                            terminationCost = -Inf,
-                           verbose = TRUE,
+                           monitorFunc = monitor_func,
                            iterations = 1000,
                            max.depth = 10)
 
-# Evaluation
-ForecastingModel  <- ge$best$expressions[1]
-result            <- with(TestingData, eval(ForecastingModel))
-error             <- assess_fit(result, TestingData[, close])
-
-# Trading strategy, assuming we blindly apply:
-#
-# LONG if result is positive
-# SHORT otherwise
-test_set      <- stats::lag(TestingData[, close], -1) |> diff() |> na.omit()
-common_dates  <- intersect(index(result), index(test_set))
-result        <- result[common_dates]
-test_set      <- test_set[common_dates]
-signal        <- (result * test_set) |> cumsum()
-
-plot(signal)
-lines(cumsum(test_set), col = 2)
-print(ForecastingModel)
-
-long_only_signal <- cumsum(test_set)
-model_signal <- cumsum(sign(result) * test_set)
-no_shorts_signal <- cumsum(ifelse(sign(result) > 0, 1, 0) * test_set)
+e_to_s <- \(ex) paste(deparse(ex), collapse = " ")
 
 
-################ Permutation Test 
-
-sig <- sign(zoo::na.fill(stats::lag(result, 1), 0))
-
-shuffle <- \(data) { 
+shuffle <- \(data) {
   xts::xts(
            sample(as.numeric(data)),
            order.by = index(data)
   )
 }
 
-actual_pnl    <- sig * test_set
-shuffled_data <- numeric(0)
+e_to_s <- \(ex) paste(deparse(ex), collapse = " ")
+
+forecasting_model  <- ge$best$expressions[1]
+
+train_signal       <- with(TrainingData, eval(forecasting_model))
+cat("Model: ", e_to_s(forecasting_model))
+
+train_close   <- TrainingData[, close]
+next_day      <- stats::lag(train_close, -1) |> log() |> diff() |> na.omit()
+train_return  <- cumsum(train_signal * next_day)
 
 max_test <- 1000
 
-for (i in 1:max_test) {
-  shuffled_pnl <- sum(sig * shuffle(test_set))
-  shuffled_data <- c(shuffled_data, shuffled_pnl)
-}
+shuffle_train <- replicate(max_test, sum(train_signal * shuffle(next_day)))
+shuffle_mean <- mean(shuffle_train)
+shuffle_sd   <- sd(shuffle_train)
+prob_ret     <- pnorm(shuffle_mean, shuffle_sd, lower.tail = FALSE)
 
-shuffle_mean  <- mean(shuffled_data)
-shuffle_sd    <- sd(shuffled_data)
-actual_ret    <- sum(actual_pnl)
+plot(train_return)
+lines(train_close, col = 2, on = 1)
+
+hist(shuffle_train, prob = TRUE)
+lines(density(shuffle_train))
+abline(v = prob_ret, col = 2)
+
+# Test Evaluation
+test_signal        <- with(TestingData, eval(forecasting_model))
+
+test_close    <- TestingData[, close]
+test_set      <- stats::lag(test_close, -1) |> log() |> diff() |> na.omit()
+test_ret      <- (test_signal * test_set)
+
+plot(cumsum(test_ret))
+lines(cumsum(test_set), col = 2)
+print(forecasting_model)
+
+shuffle_test  <- replicate(max_test, sum(train_signal * shuffle(next_day)))
+
+shuffle_mean  <- mean(shuffle_test)
+shuffle_sd    <- sd(shuffle_test)
+actual_ret    <- sum(test_ret)
 
 p_value <- pnorm(actual_ret, shuffle_mean, shuffle_sd, lower.tail = FALSE)
 print(p_value)
 
-plot(cumsum(actual_pnl), col = "black")
-lines(cumsum(shuffled_pnl), col = "blue")
-lines(cumsum(test_set), col = "red")
-
-cat("Model ", str(ForecastingModel))
+hist(shuffle_test, prob = TRUE)
+lines(density(shuffle_test))
+abline(v = actual_ret, col = 2)
