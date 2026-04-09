@@ -1,5 +1,6 @@
 ---
 title: "Trading Strategy"
+author: "202566237 / 202553206"
 output:
   pdf_document: default
   html_document: default
@@ -10,6 +11,7 @@ editor_options:
   markdown: 
     wrap: 72
 ---
+
 # Introduction
 
 In 1755 Homma Munehisa published his work "The Fountain of Gold - The Three
@@ -26,19 +28,20 @@ and so if any opportunity were to be gained from its analysis, it would be
 acted upon and disappear very quickly. This effect is one of several inferences
 drawn from the Efficient Market Hypothesis, the dominant theory of
 information-driven price action in modern finance. To the Efficient Market
-Hypothesis, technical analysis is little better than astrology [^2].
+Hypothesis (EMH), technical analysis is little better than astrology [^2].
 
-However, this theory is not universally accepted, and has been coming under
-increased scrutiny since the early 1980s. Whilst it is certainly a good model
-of what it means for a market to be efficient, and provides good grounds for
-believing they should be, it does not follow that markets are efficient. For
-one thing, perfectly efficient markets are themselves theoretically impossible
-[^3]. Secondly, several studies of major indices indicate that even deep
-markets can exhibit price autocorrelation, particularly in times of market
-stress [^4]. Thirdly, the performance of Renaissance Technologies' Medallion
-fund cannot be dismissed as just an anomaly [^5]. Indeed, it has been suggested
-that the acceptance of the universal application of the Efficient Market
-Hypothesis is directly correlated to its fashionability [^6]. 
+However, this conclusion is not universally accepted, and the EMH has been
+coming under increased scrutiny since the early 1980s. Whilst it is certainly a
+good model of what it means for a market to be efficient, and provides strong
+grounds for believing they should be, it does not follow that markets are
+efficient. For one thing, perfectly efficient markets are themselves
+theoretically impossible [^3]. Secondly, several studies of major indices
+indicate that even deep markets can exhibit price autocorrelation, particularly
+in times of market stress [^4]. Thirdly, the performance of Renaissance
+Technologies' Medallion fund cannot be dismissed as just an anomaly [^5].
+Indeed, it has been suggested that the acceptance of the universal application
+of the Efficient Market Hypothesis is directly correlated to its fashionability
+[^6]. 
 
 ## Technical Indicators
 Modern technical analysis has many techniques, ranging from subjective 
@@ -75,8 +78,8 @@ because it can provide easily understood answers, and secondly because evolution
 is an adaptive system, which correlates well with concept of performing in a 
 constantly changing environment like a financial market. 
 
-ChatGPT was utilised as a research tool, code analysis, and debugging, but did
-not write any code. 
+ChatGPT was utilised for research, code analysis, and debugging, and some 
+inidental code, as marked.
 
 [^1] see, e.g. Hillier, D. (2024). eBook: Corporate Finance 5e. McGraw Hill
 
@@ -466,7 +469,7 @@ plot(
   type = "l",
   xlab = "Iteration",
   ylab = "Cost",
-  main = "Best cost by iteration",
+  main = "Best Cost by Iteration",
   col  = "blue"
 )
 
@@ -489,7 +492,8 @@ e_to_s <- \(ex) paste(deparse(ex), collapse = " ")
 
 The above figure shows that the evolution progressed in steps, as a new
 elite function was discovered and remained in top position for extended periods
-whilst new generations failed to exceed its performance.
+whilst new generations failed to exceed its performance. It also shows that the
+solution was found very quickly, which might suggest that the grammar it too narrow.
 
 One might suspect that the GA is static during these periods, but the red line
 shows that the mean cost per generation fluctuates significantly, indicating
@@ -815,32 +819,38 @@ abline(v = actual_ret, col = 2)
 ```
 
 This strategy performs quite well compared to the asset in both test (not shown)
-and training. Its result, with a p_value of `r prob_ret`, is OK but we would prefer
+and training. But the shuffle test's p_value of `r prob_ret`, is too low. We require
 a value above 0.95 for proper statistical significance. Nonetheless, part of the 
 explanation for its more reliable performance could be that the underlying asset
-is more volatile than the others. 
+is more volatile than the others making buy and hold inherently unattractive.
 
 ## Conclusion
-The results are clearly mixed. For some assets our approach seems to work well, but in
-others the results are less impressive. Whilst developing this report, it was
-noted that there was a great deal of variation between different runs of the GA.
-On some occasions a very improbable, highly profitable strategy emerged. In some
-others, it produced a loser. The implication is that the GA has not fully
-explored the problem space, which in turn suggests that a significantly higher
-number of iterations may be required, or a deeper grammar, or a higher
-`max.depth` setting, however this was not feasible with the current hardware and
-time constraints particularly given R's limited recursion capability. 
 
-Nonetheless, luck alone doesn't explain the performance of those strategies that
-did work well. For example, the following highly successful, low probability 
-strategy was found after 20,000 iterations (left overnight) on BZ=F:
+The results are clearly lacklustre. For some assets our approach may work well,
+but in others the results are less impressive. Whilst developing this report,
+it was noted that there was a great deal of variation between different runs of
+the GA, suggesting that the random seed partly determined the result (which it
+shouldn't). On some occasions a very improbable, highly profitable strategy
+emerged. In others, it produced a loser. The implication is that the GA has not
+fully explored the problem space, which in turn suggests that a significantly
+higher number of iterations may be required, or a deeper grammar, or a higher
+`max.depth` setting, however this was not feasible with the current hardware
+and time constraints particularly given R's limited recursion capability. 
+
+Nonetheless, luck may have found the strategies, but it doesn't explain their 
+performance. For example, the following highly successful, low probability 
+strategy was found after 20,000 iterations (left overnight) on Brent-Crude:
 
 ```
 dema(BZ.F.Open, 14L, 0.1, FALSE) + BZ.F.High - hma(BZ.F.Close, 3L)] > 
 zlema(BZ.F.Close,  100L)
 ```
 
-Its behaviour is entirely deterministic; why should its performance be random?
+DEMA, HMA, and ZLEMA are very fast, low-lag indicators, but with ZLEMA applied
+to a very long period. The result is essentially a moving average crossover
+indicator; a common strategy. Its behaviour is entirely deterministic; why
+should its performance be random? 
+
 In summary, this report indicates that technical indicators may have more
 predictive power than the Efficient Market Hypothesis would allow, but such an
 assertion requires more research on a larger universe of assets. 
