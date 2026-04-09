@@ -40,22 +40,10 @@ fund cannot be dismissed as just an anomaly [^5]. Indeed, it has been suggested
 that the acceptance of the universal application of the Efficient Market
 Hypothesis is directly correlated to its fashionability [^6]. 
 
-Nonetheless, financial markets are fundamentally stochastic systems, which can
-be described in terms of a drift and stochastic parameter such as:
-
-$$
-  X_t = \theta X_{t-1} + \epsilon_{t}
-$$
-
-Where $\epsilon$ is a drift coefficient, $X_t$ is the price at time $t$ and
-$\epsilon$ is a random variable representing the effect of new information on
-the price. An investor would like to know the signal, $\theta X_t$ and reject
-$\epsilon$, the noise. 
-
 ## Technical Indicators
-Modern technical analysis has many sub-disciplines, ranging from subjective 
+Modern technical analysis has many techniques, ranging from subjective 
 pattern-recognition, to high-frequency, fully-automated mathematical models. At
-the less subjective but still easily applied end of this spectrum lie a group
+the more objective but still easily applied end of this spectrum lie a group
 of models called "technical indicators". These are popular with amateur 
 traders because they are easy to understand and apply. Indeed, many
 of the most popular indicators were developed before high-power computing was
@@ -74,20 +62,18 @@ structure, they tend to correlate closely and fall into four key categories [^8]
 
 Consequently, they are usually used in combination with each other and other
 techniques. In fact, indicators are often composed of other indicators. For
-example, the Exponential Moving Average:
+example, the Exponential Moving Average is the basis of the DEMA, ZLEMA, TRIX,
+and ATR indicators. 
 
-$$
-  EMA_{t} = \alpha P_{t} + (1-\alpha)EMA_{t-1}
-$$
+Given the above, our question is whether or not there exists an optimal
+combination of indicators that can be profitably applied without subjective
+intervention.
 
-is the basis of the DEMA, ZLEMA, TRIX, and ATR indicators. 
-
-Given the above, our first query is whether or not there exists an optimal
-combination of indicators that can be effectively applied without subjective
-intervention, i.e. an automated trading system based on existing indicators. 
-
-To achieve this, we utilised R's gramEvol package to generate and test
-different combinations of indicators found in the TTR package. 
+To answer this, we utilised a Genetic Programming strategy to evolve and test
+different combinations of indicators. This was chosen for two reasons: firstly,
+because it can provide easily understood answers, and secondly because evolution 
+is an adaptive system, which correlates well with concept of performing in a 
+constantly changing environment like a financial market. 
 
 ChatGPT was utilised as a research tool, code analysis, and debugging, but did
 not write any code. 
@@ -107,11 +93,11 @@ anomalies on the London Stock Exchange in the dynamic perspective of the
 Adaptive Market Hypothesis: A study of FTSE100 & FTSE250 indices over a ten
 year period. _Quantitative Finance and Economics_, 4(1), pp.121–147.
 
-[^5] TODO
+[^5] Cornell, B. (2020). Medallion Fund: The Ultimate Counterexample? The Journal of Portfolio Management, 46(4), pp.156–159. 
 
 [^6] Gyamfi, E.N., Kyei, K.A. and Gill, R. (2017). Market efficiency of African
 stock markets: A Meta-Analysis. The Journal of Developing Areas, 51(4),
-pp.69–80. doi:https://doi.org/10.1353/jda.2017.0088.
+pp.69–80.
 
 [^7] See Lo et al. (ibid) and Oppenheim, A.V. and Verghese, G.C. (2017).
 _Signals, systems and inference._ Harlow Pearson Education Limited.
@@ -122,22 +108,18 @@ Accessed 7 Apr. 2026.
 
 # Data
 
-Three datasets were chosen for analysis: Berkshire-Hathaway, Apple, and Brent-Crude.
+Three instruments were chosen for analysis: Berkshire-Hathaway, Apple, and Brent-Crude.
 The former two are equities, which exhibit a general upward trend, and the latter
-is a commodity that fluctuates within a wide range. They were selected because they
+is a commodity that fluctuates within a range. They were selected because they
 are actively traded instruments with differing returns and volatilities, representing
-different market regimes.
+different market regimes. Data encompassing 2000 to 2025 was obtained, including several
+regime shifts and sigificant market events. 
 
 # Trading Strategy
 
 A context-free grammar of indicators from the TTR package for optimisation in a
-Genetic Program was created. This involved wrapping the indicators to permit
-appropriate error handling and a detailed guard in the fitness function to
-catch the many ways that R's delightfully idiosyncratic behaviour can poison
-the genetic program tree by silently propogating inappropriate values.
-
-The indicators were selected in order to ensure that all four of the above
-categories of indicator were represented.
+Genetic Program was created. The indicators were selected in order to ensure
+that all four of the above categories of indicator were represented.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
@@ -211,15 +193,18 @@ TestingData  <- FullDataXTS[testing_start]
 
 ```{r indicators}
 ############################# Technical Analysis Indicators ####################
-# To guard against inappropriate parameters or meaningless values such as NULL
-# poisoning the GP process, indicators return either a valid series or an empty
-# one that can be handled by other (particularly the comp) function.
+# To guard against R's idiosyncratic tendency to allow inappropriate parameters
+# or meaningless values such as NULL to silently poison the GP process, indicators 
+# return either a valid series or an empty one that can be handled by other (particularly 
+# the comp) function.
+
 mk_guarded_indic <- \(f) {
   function(data) {
     tryCatch(f(data), error = \(e) return(data[0]))
   }
 }
-
+```
+```{r echo=FALSE}
 clv <- mk_guarded_indic(TTR::CLV)
 # Guard for indicators that take a price and 1 extra param
 mk_guarded_indic_1 <- \(f) {
@@ -234,29 +219,23 @@ hma   <- mk_guarded_indic_1(TTR::HMA)
 vhf   <- mk_guarded_indic_1(TTR::VHF)
 cmo   <- mk_guarded_indic_1(TTR::CMO)
 zlema <- mk_guarded_indic_1(TTR::ZLEMA)
-```
-```{r guard_2, echo=FALSE}
+
 mk_guarded_indic_2 <- \(f) {
   function(data, a, b) {
     tryCatch(f(data, a, b), error = \(e) { return(data[0])}
     )
   }
 }
-```
-```{r indic_2}
 evwma  <- mk_guarded_indic_2(TTR::EVWMA)
 vwap   <- mk_guarded_indic_2(TTR::VWAP)
 cmf    <- mk_guarded_indic_2(TTR::CMF)
 rsi    <- mk_guarded_indic_2(TTR::RSI)
-```
-```{r guard_3, echo=FALSE}
+
 mk_guarded_indic_3 <- \(f) {
   function(data, a, b, c) {
     tryCatch(f(data, a, b, c), error = \(e) return(data[0]))
   }
 }
-```
-```{r indic_3}
 alma <- mk_guarded_indic_3(TTR::ALMA)
 dema  <- mk_guarded_indic_3(TTR::DEMA)
 # MACD requires its own wrapper since it returns multiple columns
@@ -265,9 +244,6 @@ macd <- function(data, a, b, c, d) {
     TTR::MACD(data, a, b, c, maType = d)[, "macd"]
   }, error = function(e) data[0])
 }
-
-```
-```{r comp, echo=FALSE}
 # Grouped aspects for various indicators that require them
 make_high_low_close <- \(high, low, close) {
   as.call(c(
@@ -275,9 +251,8 @@ make_high_low_close <- \(high, low, close) {
     lapply(c(high, low, close), as.name)
   ))
 }
-
 high_low_close <- make_high_low_close(high, low, close)
-
+# Converts the strategy to a signal in its context
 comp <- function(aspect, strategy) {
   tryCatch({
     if(class(aspect)[1] == "integer") {
@@ -308,75 +283,74 @@ comp <- function(aspect, strategy) {
 ```{r indicator_rules}
 
 make_indicator_rules <- \(price_rules, volume, high_low_close) {
-  list(expr        = grule(compare(aspect, signal),
-                           compare(const, signal ), 
-                           compare(signal, signal ) 
-                           ),
-       compare     = grule(comp),
-       signal      = grule(op(signal, indic),
-                           op(signal, aspect),
-                           indic
-                           ),
-       op          = grule('+', '-', '*', '/'),
-       indic       = grule(sma(aspect, lag), # Trend
-                           ema(aspect, lag), # Trend
-                           hma(aspect, lag), # Trend
-                           vhf(aspect, lag), # Trend
-                           dema(aspect, lag, ratio, bool), # Trend
-                           zlema(aspect, lag), # Trend
-                           evwma(aspect, vol, lag), # Trend
-                           vwap(aspect, vol, lag), #Volume
-                           cmf(hlc, vol, lag), #Volume
-                           cmo(aspect, lag), #Momentum
-                           rsi(aspect, lag, maType),#Momentum
-                           macd(aspect, lag, lag, lag, maType),
-                           clv(hlc) # Hard to categorise; "Pressure"
-                           ),
-       aspect      = do.call(grule, price_rules),
-       ratio       = gvrule(seq(0.1, 1.0, by = 0.1)),
+  list(expr    = grule(compare(aspect, signal),
+                       compare(const, signal ), 
+                       compare(signal, signal ) 
+                       ),
+       compare = grule(comp),
+       signal  = grule(op(signal, indic),
+                       op(signal, aspect),
+                       indic
+                       ),
+       op      = grule('+', '-', '*', '/'),
+       indic   = grule(sma(aspect, lag), # Trend; Simple MA
+                       ema(aspect, lag), # Trend; Exponential MA
+                       hma(aspect, lag), # Trend; Hull MA
+                       vhf(aspect, lag), # Trend; Vertical Horizontal Filter
+                       dema(aspect, lag, ratio, bool), # Trend; Double EMA
+                       zlema(aspect, lag), # Trend; Zero Lag EMA
+                       evwma(aspect, vol, lag), # Trend; Elastic Volume-Weighted MA
+                       vwap(aspect, vol, lag), #Volume; Volume Weighted Average Price
+                       cmf(hlc, vol, lag), #Volume; Chaikin Money Flow
+                       cmo(aspect, lag), #Momentum; Chaikin Momemtum Oscillator
+                       rsi(aspect, lag, maType),#Momentum; Relative Strength Index
+                       macd(aspect, lag, lag, lag, maType), #Mometum MACD
+                       clv(hlc) # Hard to categorise; "Pressure"
+                       ),
+       aspect  = do.call(grule, price_rules),
+       ratio   = gvrule(seq(0.1, 1.0, by = 0.1)),
        # These are commonly used window sizes in technical analysis
-       lag         = gvrule(c(2L, 3L, 5L, 10L, 14L, 20L, 50L, 100L, 200L)),
-       const       = gvrule(1:50),
-       bool        = grule(TRUE, FALSE),
-       vol         = do.call(grule, list(as.symbol(volume))),
-       hlc         = do.call(grule, list(high_low_close)),
+       lag     = gvrule(c(2L, 3L, 5L, 10L, 14L, 20L, 50L, 100L, 200L)),
+       const   = gvrule(1:50),
+       bool    = grule(TRUE, FALSE),
+       vol     = do.call(grule, list(as.symbol(volume))),
+       hlc     = do.call(grule, list(high_low_close)),
        # Can't use WMA here
-       maType      = grule("EMA", "SMA", "DEMA", "ZLEMA", "HMA")
+       maType   = grule("EMA", "SMA", "DEMA", "ZLEMA", "HMA")
        )
 }
-
-indicator_rules <- make_indicator_rules(price_rules, volume, high_low_close)
 ```
 
-The grammar is designed to create functions that produce a signal, given
+The grammar is designed to create indicators that produce a signal, given
 context by comparison with either an aspect of the price series (the Open, High,
-Low, or Close), a constant, or another signal. The signal is then converted into
+Low, or Close), a constant, or another signal. The signal is converted into
 a time series of 1 or -1 if it is above or below the corresponding value in the
 left hand of the comparison.
 
 ```{r echo=FALSE}
+indicator_rules <- make_indicator_rules(price_rules, volume, high_low_close)
 forecasting_grammar <- CreateGrammar(indicator_rules)
+# Create an environment with all the variables up to this point that can be 
+# accessed using column names as symbols
+env <- list2env(as.list(TrainingData), parent = .GlobalEnv)
 ```
 
-The cost function assumes that the account will hold a long position whilst the
-signal is 1, a short position if the signal is -1, and none if it is 0. It seeks to
-select strategies that outperform buy-and-hold. However, if unconstrained it has
-a tendency to select very low frequency trading strategies that randomly select
-advantageous entry points in the training set, but fail to trade in the test
-set. Consequently, a threshold number of trades is set as a daily rate. In order
-to make the simulation more realistic and to penalise over-trading, the cost
-function adds a charge for each trade of 0.1%. This is to reflect the fact that
-costs are very likely to be incurred either as a topline charge or through the
+The cost function (assess_strat) assumes that the account will hold a long
+position whilst the signal is 1, a short position if the signal is -1, and none
+if it is 0. It seeks to select strategies that outperform buy-and-hold.
+However, it tends to select very low frequency trading strategies that randomly
+select advantageous entry points in the training set, but fail to trade in the
+test set. Consequently, a threshold number of trades is set as a daily rate. In
+order to make the simulation more realistic and to penalise over-trading, the
+cost function adds a 0.1% charge for each trade. This reflects the fact that
+costs are very likely to be incurred either as a topline charge or in the
 spread, but are still usually very small. The final addition is a cost for
 inaccuracy.
 
 ```{r cost_function}
-# Create an environment with all the variables up to this point that can be 
-# accessed using column names as symbols
-env <- list2env(as.list(TrainingData), parent = .GlobalEnv)
 target_trade_rate <- 1/21
-
-assess_strat <- \(result, data) {
+# Cost function
+assess_strat <- \(result, data) { 
   stopifnot(is.xts(result) && is.xts(data))
   stopifnot(NROW(result) == NROW(data))
   next_day        <- stats::lag(data, -1)  |> na.omit()
@@ -463,6 +437,8 @@ monitor_func <- function(result) {
 }
 ```
 
+## GP Parameters
+
 If `assess_strat` returns a value greater than the termination cost, 
 the GP halts at that point. But since `assess_strat` reflects a strategy's 
 relative out performance over buy and hold, we do not wish to cap this value. 
@@ -470,7 +446,8 @@ Consequently, the termination cost is unlimited.
 
 ```{r evolution_function, cache=TRUE}
 max_iters <- 1000
-main_ga_path <- file.path(rds_dir, "brk_b_main_ga.rds")
+#Cache the GP to save editing time (ChatGPT)
+main_ga_path <- file.path(rds_dir, "brk_b_main_ga.rds") 
 main_ga <- load_or_run_rds(main_ga_path, function() {
   monitor <<- monitor[0, ]
   ge <- GrammaticalEvolution(forecasting_grammar,
@@ -489,7 +466,8 @@ plot(
   type = "l",
   xlab = "Iteration",
   ylab = "Cost",
-  main = "Best cost by iteration"
+  main = "Best cost by iteration",
+  col  = "blue"
 )
 
 lines(
@@ -501,10 +479,12 @@ lines(
 legend(
   "topright",
   legend = c("Best cost", "Mean finite cost"),
-  col = c("black", "red"),
+  col = c("blue", "red"),
   lty = 1
 )
 
+# Converts a strategy to a printable string
+e_to_s <- \(ex) paste(deparse(ex), collapse = " ")
 ```
 
 The above figure shows that the evolution progressed in steps, as a new
@@ -515,19 +495,20 @@ One might suspect that the GA is static during these periods, but the red line
 shows that the mean cost per generation fluctuates significantly, indicating
 that the GA is at work.
 
-# Results
+# Results 
 
 The strategy's performance was assessed by comparison to a buy and hold
 strategy and a permutation test to assess how well the strategy captured
 structurally important features of the asset's behaviour.
 
-The permutation test creates 1000 new return paths by shuffling the daily
-returns of the asset. The result is a set of random return paths within the
-scope of the original asset. If the strategy's performance on the original asset
-is at the extreme of the random paths, then it can be considered to be
-a significant result. 
+The permutation test shuffles the asset to create 1000 random return paths
+within the asset's scope. If the strategy's performance on the unshuffled data
+is at the extreme of these paths, then it can be considered to be a significant
+result. 
 
-## Training Data
+## BRK-B
+
+### Performance on Training Data
 
 ```{r train_evaluation}
 shuffle <- \(data) { 
@@ -537,7 +518,6 @@ shuffle <- \(data) {
   )
 }
 
-e_to_s <- \(ex) paste(deparse(ex), collapse = " ")
 
 forecasting_model  <- ge$best$expressions[1]
 train_signal  <- with(TrainingData, eval(forecasting_model))
@@ -552,9 +532,6 @@ shuffle_mean <- mean(shuffle_train)
 shuffle_sd   <- sd(shuffle_train)
 prob_ret     <- pnorm(shuffle_mean, shuffle_sd, lower.tail = FALSE)
 ```
-The GA optimised to this model: `r e_to_s(forecasting_model)`
-
-
 ```{r plot_train_return, echo=FALSE}
 train_plot <- merge(train_return, cumsum(next_day), join = "inner")
 plot(index(train_plot), as.numeric(train_plot[, 1]),
@@ -566,15 +543,16 @@ lines(index(train_plot), as.numeric(train_plot[, 2]), col = 2)
 legend("topleft", legend = c("Strategy", "Buy-and-hold"),
        col = c("black", 2), lty = 1, bty = "n")
 ```
-
 ```{r plot_train_shuffle, echo=FALSE}
 hist(shuffle_train, prob = TRUE)
 lines(density(shuffle_train))
 abline(v = prob_ret, col = 2)
 ```
 
-### Test Data
-Applying the same technique to the test period results gave the following:
+The GA found this model: `r e_to_s(forecasting_model)`
+
+### Performance on Test Data
+Applying the same strategy to the test period gave the following:
 
 ```{r test_evaluation, echo=FALSE}
 
@@ -593,7 +571,6 @@ actual_ret    <- sum(test_ret)
 
 p_value <- pnorm(actual_ret, shuffle_mean, shuffle_sd, lower.tail = FALSE)
 ```
-
 ```{r plot_test_return, echo=FALSE}
 test_plot <- merge(cumsum(test_ret), cumsum(test_set), join = "inner")
 plot(index(test_plot), as.numeric(test_plot[, 1]),
@@ -611,8 +588,11 @@ hist(shuffle_test, prob = TRUE)
 lines(density(shuffle_test))
 abline(v = actual_ret, col = 2)
 ```
-The approach was also tested against other assets, showing differing performance
-in each. A sample of those tested are as follows:
+
+The results are obviously disappointing: a high-performing and reasonably
+significant strategy in the training set performed badly in the test set. Could
+it just be this asset? The approach was also tested against the other two
+assets, showing differing performance in each. 
 
 ### Apple
 ```{r AAPL, echo=FALSE}
@@ -663,7 +643,7 @@ training_close <- TrainingData[, close]
 env <- list2env(as.list(TrainingData), parent = .GlobalEnv)
 ```
 
-Model: `r e_to_s(forecasting_model)`
+The GP found this model: `r e_to_s(forecasting_model)`
 
 ```{r apple_train, echo=FALSE, cache=TRUE}
 apple_ga_path <- file.path(rds_dir, "aapl_ga.rds")
@@ -714,10 +694,16 @@ lines(index(test_plot), as.numeric(test_plot[, 2]), col = 2)
 legend("topleft", legend = c("Strategy", "Buy-and-hold"),
        col = c("black", 2), lty = 1, bty = "n")
 
+```
+```{r aapl_plot_shuffle, echo = FALSE}
 hist(shuffle_test, prob = TRUE)
 lines(density(shuffle_test))
 abline(v = actual_ret, col = 2)
 ```
+
+In this case, the GP has found a rather insignificant strategy that closely
+follows the buy and hold strategy in test. It compares a set of indicators that
+rely on momentum and volume to the number 47, which seems arbitrary. 
 
 ### Brent Crude
 
@@ -764,6 +750,7 @@ TestingData  <- FullDataXTS[testing_start]
 indicator_rules <- make_indicator_rules(price_rules, volume, high_low_close)
 forecasting_grammar <- CreateGrammar(indicator_rules)
 training_close <- TrainingData[, close]
+
 # Create an environment with all the variables up to this point that can be 
 # accessed using column names as symbols
 env <- list2env(as.list(TrainingData), parent = .GlobalEnv)
@@ -821,13 +808,20 @@ legend("topleft", legend = c("Strategy", "Buy-and-hold"),
        col = c("black", 2), lty = 1, bty = "n")
 ```
 ```{r brent_plot_test_shuffle, echo=FALSE}
-hist(shuffle_test, prob = TRUE)
+hist(shuffle_test, prob = TRUE, main = "Shuffle Test")
 lines(density(shuffle_test))
 abline(v = actual_ret, col = 2)
 
 ```
+
+This strategy performs quite well compared to the asset in both test (not shown)
+and training. Its result, with a p_value of `r prob_ret`, is OK but we would prefer
+a value above 0.95 for proper statistical significance. Nonetheless, part of the 
+explanation for its more reliable performance could be that the underlying asset
+is more volatile than the others. 
+
 ## Conclusion
-The results are mixed. For some assets, our approach seems to work well, but in
+The results are clearly mixed. For some assets our approach seems to work well, but in
 others the results are less impressive. Whilst developing this report, it was
 noted that there was a great deal of variation between different runs of the GA.
 On some occasions a very improbable, highly profitable strategy emerged. In some
@@ -835,7 +829,7 @@ others, it produced a loser. The implication is that the GA has not fully
 explored the problem space, which in turn suggests that a significantly higher
 number of iterations may be required, or a deeper grammar, or a higher
 `max.depth` setting, however this was not feasible with the current hardware and
-time constraints.
+time constraints particularly given R's limited recursion capability. 
 
 Nonetheless, luck alone doesn't explain the performance of those strategies that
 did work well. For example, the following highly successful, low probability 
@@ -849,7 +843,7 @@ zlema(BZ.F.Close,  100L)
 Its behaviour is entirely deterministic; why should its performance be random?
 In summary, this report indicates that technical indicators may have more
 predictive power than the Efficient Market Hypothesis would allow, but such an
-assertion requires more research on a larger universe of assets, perhaps
+assertion requires more research on a larger universe of assets. 
 
 # Self-Adjusting Algorithm
 
@@ -875,6 +869,7 @@ mk_trade <- \(direction, open_price, fee) {
   )
 }
 
+# This is a dummy starting position introduced to make computation easier below
 open_position <- mk_trade(direction = 0, open_price = 0, fee = 0)
 
 for (i in 2:NROW(data_set)) {
